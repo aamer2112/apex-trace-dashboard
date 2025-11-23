@@ -1,9 +1,16 @@
 import { Search, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NavLink } from "@/components/NavLink";
 import tufastLogo from "@/assets/tufast-logo.png";
 
 const TopNav = () => {
-  const navItems = ["Bags", "Simulation", "Queue", "Admin", "Sup"];
+  const navItems = [
+    { label: "Bags", path: "/" },
+    { label: "Simulation", path: "/simulation" },
+    { label: "Queue", path: "/queue" },
+    { label: "Admin", path: "/admin" },
+    { label: "Summary", path: "/summary" }
+  ];
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-dashboard-border bg-dashboard-panel/95 backdrop-blur-xl">
@@ -20,12 +27,14 @@ const TopNav = () => {
         {/* Center: Navigation */}
         <div className="flex items-center gap-1">
           {navItems.map((item) => (
-            <button
-              key={item}
+            <NavLink
+              key={item.path}
+              to={item.path}
               className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-all"
+              activeClassName="text-foreground bg-primary/10 border-b-2 border-primary"
             >
-              {item}
-            </button>
+              {item.label}
+            </NavLink>
           ))}
         </div>
 

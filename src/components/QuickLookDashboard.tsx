@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Activity, Gauge, Zap, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface KPICardProps {
   title: string;
@@ -32,6 +34,24 @@ const KPICard = ({ title, value, unit, icon, trend }: KPICardProps) => (
 );
 
 const QuickLookDashboard = () => {
+  const [selectedTopics, setSelectedTopics] = useState(["steering", "speed"]);
+
+  const toggleTopic = (topic: string) => {
+    setSelectedTopics(prev =>
+      prev.includes(topic)
+        ? prev.filter(t => t !== topic)
+        : [...prev, topic]
+    );
+  };
+
+  const topics = [
+    { id: "steering", label: "Steering" },
+    { id: "speed", label: "Speed" },
+    { id: "torque", label: "Torque" },
+    { id: "brake", label: "Brake" },
+    { id: "throttle", label: "Throttle" }
+  ];
+
   return (
     <div className="space-y-6">
       {/* KPI Grid */}
@@ -71,15 +91,17 @@ const QuickLookDashboard = () => {
             Synchronized Telemetry
           </h3>
           <div className="flex gap-2 text-xs">
-            <button className="px-3 py-1 rounded bg-primary text-primary-foreground font-medium">
-              Steering
-            </button>
-            <button className="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/70">
-              Speed
-            </button>
-            <button className="px-3 py-1 rounded bg-muted text-muted-foreground hover:bg-muted/70">
-              Torque
-            </button>
+            {topics.map((topic) => (
+              <Button
+                key={topic.id}
+                variant={selectedTopics.includes(topic.id) ? "default" : "ghost"}
+                size="sm"
+                onClick={() => toggleTopic(topic.id)}
+                className="h-7"
+              >
+                {topic.label}
+              </Button>
+            ))}
           </div>
         </div>
 

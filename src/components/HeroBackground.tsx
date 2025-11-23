@@ -19,38 +19,32 @@ const HeroBackground = () => {
         />
       </motion.div>
 
-      {/* Animated Racing Car */}
+      {/* Animated Racing Car - Subtle Background */}
       <motion.div
-        initial={{ x: -200, opacity: 0 }}
+        initial={{ x: "100vw" }}
         animate={{ 
-          x: 0, 
-          opacity: 1,
+          x: "-100%",
         }}
         transition={{ 
-          duration: 1.5, 
-          ease: "easeOut",
+          duration: 14,
+          repeat: Infinity,
+          ease: "linear",
+          repeatType: "loop"
         }}
-        className="absolute bottom-32 left-1/2 -translate-x-1/2 w-[600px] h-auto"
+        className="absolute bottom-20 w-[500px] h-auto"
+        style={{ zIndex: -2 }}
       >
-        <motion.div
-          animate={{ 
-            y: [0, -8, 0],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="relative"
-        >
+        <div className="relative opacity-[0.08]">
           <img 
             src={carOrange} 
             alt="Racing Car" 
-            className="w-full h-auto drop-shadow-[0_0_60px_rgba(255,84,0,0.6)]"
+            className="w-full h-auto"
+            style={{ mixBlendMode: "soft-light" }}
           />
-          {/* Underglow effect */}
-          <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-3/4 h-8 bg-primary/40 blur-3xl rounded-full animate-glow-pulse" />
-        </motion.div>
+          {/* Subtle dust trail */}
+          <div className="absolute top-1/2 -left-20 w-40 h-2 bg-gradient-to-r from-transparent via-primary/20 to-transparent blur-xl" />
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-2/3 h-6 bg-primary/10 blur-2xl rounded-full" />
+        </div>
       </motion.div>
 
       {/* Carbon fiber texture overlay */}
