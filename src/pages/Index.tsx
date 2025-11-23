@@ -6,9 +6,19 @@ import HeroBackground from "@/components/HeroBackground";
 import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
 import QuickLookDashboard from "@/components/QuickLookDashboard";
+import { useBag } from "@/contexts/BagContext";
 
 const Index = () => {
   const [showDashboard, setShowDashboard] = useState(false);
+  const { selectedBagId } = useBag();
+
+  const sampleBags = [
+    { id: "1", name: "skidpad_run_001.db3", timestamp: "Nov 22, 2025 at 14:30", topics: 47, duration: "10:52" },
+    { id: "2", name: "autocross_lap_003.db3", timestamp: "Nov 22, 2025 at 11:15", topics: 52, duration: "08:15" },
+    { id: "3", name: "endurance_test_045.db3", timestamp: "Nov 21, 2025 at 16:42", topics: 51, duration: "22:08" }
+  ];
+
+  const currentBag = sampleBags.find(bag => bag.id === selectedBagId) || sampleBags[0];
 
   if (!showDashboard) {
     return (
@@ -81,10 +91,10 @@ const Index = () => {
           {/* Page Header */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-2">
-              skidpad_run_001.db3
+              {currentBag.name}
             </h2>
             <p className="text-sm text-muted-foreground">
-              Uploaded Nov 22, 2025 at 14:30 • 47 topics • 10:52 duration
+              Uploaded {currentBag.timestamp} • {currentBag.topics} topics • {currentBag.duration} duration
             </p>
           </div>
 
