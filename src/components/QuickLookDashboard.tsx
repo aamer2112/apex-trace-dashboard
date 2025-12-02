@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Activity, Gauge, Zap, TrendingUp } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useBag } from "@/contexts/BagContext";
+import TelemetryChart from "./TelemetryChart";
 
 interface KPICardProps {
   title: string;
@@ -34,13 +36,14 @@ const KPICard = ({ title, value, unit, icon, trend }: KPICardProps) => (
 );
 
 const QuickLookDashboard = () => {
-  const [selectedTopics, setSelectedTopics] = useState(["steering", "speed"]);
+  const { selectedTopics, setSelectedTopics } = useBag();
+  const [zoomRange, setZoomRange] = useState({ start: 0, end: 100 });
 
   const toggleTopic = (topic: string) => {
-    setSelectedTopics(prev =>
-      prev.includes(topic)
-        ? prev.filter(t => t !== topic)
-        : [...prev, topic]
+    setSelectedTopics(
+      selectedTopics.includes(topic)
+        ? selectedTopics.filter(t => t !== topic)
+        : [...selectedTopics, topic]
     );
   };
 
