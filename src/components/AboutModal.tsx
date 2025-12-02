@@ -26,23 +26,6 @@ const AboutModal = ({ open, onOpenChange }: AboutModalProps) => {
             a member of the TUfast Racing Team – Autonomous Systems Subteam.
           </p>
           
-          <p className="text-muted-foreground leading-relaxed">
-            This tool is built for research, development, and performance engineering 
-            workflows. It provides automated processing, visualization, and simulation 
-            of ROS2 bag data with a modern F1-style design language.
-          </p>
-          
-          <p className="text-muted-foreground leading-relaxed">
-            Architecture inspired by{" "}
-            <a 
-              href="https://github.com/AMZ-Racing/rbb_core" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              AMZ Racing's rbb_core
-            </a>.
-          </p>
 
           <div className="pt-4 border-t border-dashboard-border">
             <p className="text-xs text-muted-foreground">
