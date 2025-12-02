@@ -1,73 +1,129 @@
-# Welcome to your Lovable project
+# APEXTRACE
 
-## Project info
+A web-based telemetry and analysis tool for ROS2 bag files, built with a modern F1-style dashboard interface.
 
-**URL**: https://lovable.dev/projects/83b5ce9e-992d-4f73-a4b9-8d04ad401a34
+## Overview
 
-## How can I edit this code?
+APEXTRACE provides automated processing, visualization, and simulation of autonomous vehicle telemetry data. Developed by Abdallah Amer (TUfast Racing Team – Autonomous Systems Subteam).
 
-There are several ways of editing your application.
+## Features
 
-**Use Lovable**
+- **Automatic ROS2 bag processing** - Upload bags and let the system extract all topics automatically
+- **Interactive telemetry plots** - Foxglove-style zoom, pan, and synchronized cursors
+- **Simulation playback** - Replay bag data with 2D vehicle visualization
+- **Queue management** - Monitor processing status with retry/delete options
+- **Aggregate analytics** - Summary statistics across all processed bags
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/83b5ce9e-992d-4f73-a4b9-8d04ad401a34) and start prompting.
+## Demo Mode
 
-Changes made via Lovable will be committed automatically to this repo.
+The application starts in demo mode with sample bags pre-loaded. Demo users can:
 
-**Use your preferred IDE**
+- Upload up to 3 ROS2 bags
+- View all telemetry visualizations
+- Run simulations
+- Access Queue, Admin (read-only), and Summary pages
+- Delete demo bags permanently
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Demo bags will not reappear once deleted.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## TUfast Admin Login (Optional)
 
-Follow these steps:
+For full admin privileges:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. Click "TUfast Admin Login" in the sidebar
+2. Enter your @tufast.de or @tum.de email
+3. Receive and enter the 6-digit verification code
+4. Gain full admin access
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Admin login is **optional** - demo mode provides full analysis capabilities.
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Uploading ROS2 Bags
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### Supported Formats
 
-**Edit a file directly in GitHub**
+- ROS2 bag format (`.db3`)
+- SQLite3 storage backend
+- MCAP storage backend
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Upload Process
 
-**Use GitHub Codespaces**
+1. Click "Upload Bag" in the sidebar
+2. Select your bag file(s)
+3. Bags are automatically queued for processing
+4. Check the Queue page for status
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Plot Interactions
 
-## What technologies are used for this project?
+All plots support Foxglove-style interactions:
 
-This project is built with:
+| Action | Result |
+|--------|--------|
+| Scroll wheel | Zoom in/out at cursor |
+| Drag slider | Pan through time |
+| Click + drag | Select zoom range |
+| Link button | Sync zoom across plots |
+| Reset button | Return to full view |
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Simulation Playback
 
-## How can I deploy this project?
+The Simulation page provides:
 
-Simply open [Lovable](https://lovable.dev/projects/83b5ce9e-992d-4f73-a4b9-8d04ad401a34) and click on Share -> Publish.
+- Synchronized replay of telemetry data
+- 2D vehicle visualization with steering indicator
+- Play/pause controls
+- Adjustable speed (0.5x–4x)
+- Timeline scrubbing
 
-## Can I connect a custom domain to my Lovable project?
+## Application Pages
 
-Yes, you can!
+| Page | Description |
+|------|-------------|
+| **Bags** | Main dashboard with quick-look metrics and telemetry plots |
+| **Simulation** | Real-time playback with vehicle visualization |
+| **Queue** | Processing status for uploaded bags |
+| **Admin** | System health and storage metrics |
+| **Summary** | Aggregate statistics across all bags |
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Data Export
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Export processed data as CSV or Parquet:
+
+1. Select topics in the dashboard
+2. Choose time range (optional)
+3. Click export button
+4. Download the generated file
+
+## File Storage
+
+- Raw bags: Object storage (S3/MinIO)
+- Metadata: PostgreSQL database
+- Processed data: Parquet files
+- Previews: Downsampled JSON for fast loading
+
+## Architecture
+
+Built on modern web technologies:
+
+- **Frontend**: React, Vite, Tailwind CSS, ECharts, Framer Motion
+- **Backend**: FastAPI/Node.js with worker queue
+- **Storage**: PostgreSQL, S3-compatible object storage
+- **Processing**: Docker workers using rbb_core APIs
+
+Inspired by [AMZ Racing's rbb_core](https://github.com/AMZ-Racing/rbb_core) architecture.
+
+## Reporting Issues
+
+For bugs, feature requests, or questions:
+
+1. Contact your TUfast Autonomous Systems technical lead
+2. Open an issue on the project repository
+
+## Credits
+
+- **Developer**: Abdallah Amer
+- **Team**: TUfast Racing Team – Autonomous Systems Subteam
+- **Architecture**: Inspired by AMZ Racing's rbb_core
+
+## Disclaimer
+
+This tool is developed for research and development purposes by the TUfast Autonomous Systems team. Use responsibly and in accordance with your team's data handling policies.
