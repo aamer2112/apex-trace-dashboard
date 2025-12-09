@@ -23,14 +23,14 @@ const generateData = (topic: string, points = 500) => {
       case "speed":
         value = 35 + Math.sin(t * 0.3) * 10 + Math.random() * 2;
         break;
-      case "torque":
-        value = 120 + Math.sin(t * 0.7) * 60 + Math.random() * 10;
+      case "force":
+        value = 2200 + Math.sin(t * 0.7) * 800 + Math.random() * 100;
         break;
       case "brake":
         value = Math.max(0, Math.sin(t * 0.4) * 50 + 20);
         break;
-      case "throttle":
-        value = Math.max(0, Math.sin(t * 0.3 + 1) * 40 + 50);
+      case "yaw_moment":
+        value = Math.sin(t * 0.6) * 450 + Math.random() * 30;
         break;
       default:
         value = Math.sin(t) * 10;
@@ -43,9 +43,9 @@ const generateData = (topic: string, points = 500) => {
 const topicConfig: Record<string, { color: string; unit: string; label: string }> = {
   steering: { color: "#FF5400", unit: "deg", label: "Steering Angle" },
   speed: { color: "#00C2A8", unit: "m/s", label: "Vehicle Speed" },
-  torque: { color: "#FFD700", unit: "Nm", label: "Wheel Torque" },
+  force: { color: "#FFD700", unit: "N", label: "Longitudinal Force" },
   brake: { color: "#FF4444", unit: "%", label: "Brake Pressure" },
-  throttle: { color: "#44FF44", unit: "%", label: "Throttle Position" }
+  yaw_moment: { color: "#9B59B6", unit: "Nm", label: "Yaw Moment" }
 };
 
 const TelemetryChart = ({ topics, linkedZoom = true, onZoomChange, zoomRange }: TelemetryChartProps) => {

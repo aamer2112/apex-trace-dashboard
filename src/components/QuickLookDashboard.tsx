@@ -50,9 +50,9 @@ const QuickLookDashboard = () => {
   const topics = [
     { id: "steering", label: "Steering" },
     { id: "speed", label: "Speed" },
-    { id: "torque", label: "Torque" },
+    { id: "force", label: "Force" },
     { id: "brake", label: "Brake" },
-    { id: "throttle", label: "Throttle" }
+    { id: "yaw_moment", label: "Yaw Moment" }
   ];
 
   return (
@@ -93,7 +93,7 @@ const QuickLookDashboard = () => {
           <h3 className="text-sm font-semibold uppercase tracking-wider">
             Synchronized Telemetry
           </h3>
-          <div className="flex gap-2 text-xs">
+          <div className="flex gap-2 text-xs flex-wrap">
             {topics.map((topic) => (
               <Button
                 key={topic.id}
@@ -108,59 +108,19 @@ const QuickLookDashboard = () => {
           </div>
         </div>
 
-        {/* Plot placeholder - will be replaced with Recharts */}
-        <div className="h-64 bg-dashboard-grid rounded-lg border border-dashboard-border relative overflow-hidden">
-          {/* Grid lines */}
-          <div className="absolute inset-0" style={{
-            backgroundImage: `
-              linear-gradient(hsl(var(--dashboard-border)) 1px, transparent 1px),
-              linear-gradient(90deg, hsl(var(--dashboard-border)) 1px, transparent 1px)
-            `,
-            backgroundSize: '40px 40px'
-          }} />
-          
-          {/* Sample waveform */}
-          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 800 256" preserveAspectRatio="none">
-            <path
-              d="M 0,128 Q 100,80 200,128 T 400,128 Q 500,160 600,128 T 800,128"
-              stroke="hsl(var(--primary))"
-              strokeWidth="2"
-              fill="none"
-              className="drop-shadow-[0_0_8px_hsl(var(--primary))]"
-            />
-            <path
-              d="M 0,128 Q 100,80 200,128 T 400,128 Q 500,160 600,128 T 800,128"
-              stroke="hsl(var(--primary))"
-              strokeWidth="1"
-              fill="url(#gradient)"
-              opacity="0.2"
-            />
-            <defs>
-              <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
-                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
-
-          {/* Cursor line */}
-          <div className="absolute left-1/2 top-0 bottom-0 w-px bg-accent shadow-[0_0_10px_hsl(var(--accent))]" />
-        </div>
-
-        {/* Playback controls */}
-        <div className="mt-4 flex items-center gap-4">
-          <button className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center text-primary-foreground">
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-          </button>
-          <div className="flex-1 h-1 bg-muted rounded-full relative overflow-hidden">
-            <div className="absolute left-0 top-0 h-full w-1/3 bg-primary rounded-full" />
+        {/* Interactive Telemetry Chart */}
+        {selectedTopics.length > 0 ? (
+          <TelemetryChart 
+            topics={selectedTopics} 
+            linkedZoom={true}
+            zoomRange={zoomRange}
+            onZoomChange={(start, end) => setZoomRange({ start, end })}
+          />
+        ) : (
+          <div className="h-64 bg-dashboard-grid rounded-lg border border-dashboard-border flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">Select topics to view telemetry data</p>
           </div>
-          <span className="text-xs font-telemetry text-muted-foreground">
-            03:42 / 10:52
-          </span>
-        </div>
+        )}
       </Card>
 
       {/* Donut Charts Row */}
