@@ -7,6 +7,7 @@ import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
 import QuickLookDashboard from "@/components/QuickLookDashboard";
 import { useBag } from "@/contexts/BagContext";
+import tufastLogo from "@/assets/tufast-logo.png";
 
 const Index = () => {
   const [showDashboard, setShowDashboard] = useState(false);
@@ -19,13 +20,23 @@ const Index = () => {
         <HeroBackground />
         
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6">
+          {/* Large TUfast Logo */}
+          <motion.img
+            src={tufastLogo}
+            alt="TU Fast Racing"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            className="h-32 md:h-40 w-auto mb-8"
+          />
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.5 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
             className="text-center max-w-4xl"
           >
-            <h1 className="text-6xl md:text-7xl font-bold mb-6 tracking-tight">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight">
               Welcome to{" "}
               <span className="text-primary">ROSBAG-APEXTRACE</span>
             </h1>
@@ -37,7 +48,7 @@ const Index = () => {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, delay: 1 }}
+              transition={{ duration: 0.5, delay: 0.8 }}
             >
               <Button
                 size="lg"
@@ -52,7 +63,7 @@ const Index = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 1.5 }}
+              transition={{ duration: 0.5, delay: 1.2 }}
               className="mt-16 flex items-center justify-center gap-8 text-sm text-muted-foreground"
             >
               <div className="flex items-center gap-2">
