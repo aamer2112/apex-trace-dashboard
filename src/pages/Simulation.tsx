@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useBag } from "@/contexts/BagContext";
 import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
+import { streamBagData, generateMockTelemetry, TelemetryData } from "@/lib/api";
 
 // Cone positions for the track (relative coordinates 0-100)
 const blueCones = [
@@ -30,19 +31,48 @@ const Simulation = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [zoom, setZoom] = useState(1);
-  const maxTime = 652; // 10:52 in seconds
+  const [currentDataIndex, setCurrentDataIndex] = useState(0);
+  const [telemetryData, setTelemetryData] = useState<TelemetryData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const animationRef = useRef<number>();
+
+  // Fetch telemetry data when bag changes
+  const fetchTelemetryData = useCallback(async () => {
+    if (!currentBag) return;
+    setIsLoading(true);
+    
+    // Try to fetch from backend, fallback to mock data
+    const data = await streamBagData(currentBag.name);
+    if (data) {
+      setTelemetryData(data);
+    } else {
+      // Use mock data if backend unavailable
+      setTelemetryData(generateMockTelemetry(currentBag.name, 500));
+    }
+    setIsLoading(false);
+    setCurrentDataIndex(0);
+    setCurrentTime(0);
+  }, [currentBag]);
+
+  useEffect(() => {
+    fetchTelemetryData();
+  }, [fetchTelemetryData]);
+
+  const maxTime = telemetryData?.timestamps?.length 
+    ? telemetryData.timestamps[telemetryData.timestamps.length - 1] 
+    : 652;
 
   // Car position along the track (0-1)
   const [carProgress, setCarProgress] = useState(0);
 
-  // Simulated telemetry based on time
-  const speed = 42 + Math.sin(currentTime * 0.3) * 12;
-  const steeringAngle = Math.sin(currentTime * 0.5) * 25;
-  const gForceX = Math.cos(currentTime * 0.5) * 1.5;
-  const gForceY = Math.sin(currentTime * 0.3) * 0.8;
-  const force = 2500 + Math.sin(currentTime * 0.4) * 800;
-  const yawMoment = Math.sin(currentTime * 0.6) * 450;
+  // Get current telemetry values
+  const idx = Math.min(currentDataIndex, (telemetryData?.steering?.length || 1) - 1);
+  const steeringAngle = telemetryData?.steering?.[idx] ?? 0;
+  const speed = telemetryData?.speed?.[idx] ?? 42;
+  const force = telemetryData?.force?.[idx] ?? 2500;
+  const yawMoment = telemetryData?.yaw_moment?.[idx] ?? 450;
+  const gForceX = Math.cos(currentTime * 0.5) * (speed / 40);
+  const gForceY = Math.sin(currentTime * 0.3) * (speed / 60);
 
   // Calculate car position on track
   const getCarPosition = (progress: number) => {
@@ -61,10 +91,15 @@ const Simulation = () => {
   const carPosition = getCarPosition(carProgress);
 
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && telemetryData) {
+      const totalPoints = telemetryData.timestamps?.length || 500;
       const animate = () => {
+        setCurrentDataIndex(prev => {
+          const next = prev + Math.ceil(playbackSpeed);
+          return next >= totalPoints ? 0 : next;
+        });
         setCurrentTime(prev => {
-          const next = prev + (0.016 * playbackSpeed);
+          const next = prev + (0.02 * playbackSpeed);
           return next >= maxTime ? 0 : next;
         });
         setCarProgress(prev => {
@@ -80,11 +115,12 @@ const Simulation = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, playbackSpeed, maxTime]);
+  }, [isPlaying, playbackSpeed, maxTime, telemetryData]);
 
   const handleReset = () => {
     setCurrentTime(0);
     setCarProgress(0);
+    setCurrentDataIndex(0);
     setIsPlaying(false);
   };
 
@@ -94,6 +130,9 @@ const Simulation = () => {
     const percent = x / rect.width;
     setCurrentTime(percent * maxTime);
     setCarProgress(percent);
+    if (telemetryData) {
+      setCurrentDataIndex(Math.floor(percent * (telemetryData.timestamps?.length || 500)));
+    }
   };
 
   return (
