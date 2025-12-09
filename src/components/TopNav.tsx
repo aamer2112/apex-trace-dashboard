@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
 import { useBag } from "@/contexts/BagContext";
+import { listBags, checkBackendHealth } from "@/lib/api";
 import tufastLogo from "@/assets/tufast-logo.png";
 
 const TopNav = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [backendBags, setBackendBags] = useState<string[]>([]);
+  const [backendConnected, setBackendConnected] = useState(false);
   const { bags, setSelectedBagId } = useBag();
 
   const navItems = [
@@ -18,6 +21,28 @@ const TopNav = () => {
     { label: "Admin", path: "/admin" },
     { label: "Summary", path: "/summary" }
   ];
+
+  // Check backend connection on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      const health = await checkBackendHealth();
+      setBackendConnected(!!health);
+    };
+    checkBackend();
+  }, []);
+
+  // Search both local and backend bags
+  useEffect(() => {
+    const searchBackend = async () => {
+      if (searchQuery && backendConnected) {
+        const result = await listBags(searchQuery);
+        setBackendBags(result.bags);
+      } else {
+        setBackendBags([]);
+      }
+    };
+    searchBackend();
+  }, [searchQuery, backendConnected]);
 
   const filteredBags = bags.filter(bag => 
     bag.name.toLowerCase().includes(searchQuery.toLowerCase())
