@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Activity, Gauge, Zap, TrendingUp } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Activity, Gauge, Zap, TrendingUp, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useBag } from "@/contexts/BagContext";
+import { useTelemetry } from "@/hooks/useTelemetry";
 import TelemetryChart from "./TelemetryChart";
 
 interface KPICardProps {
@@ -11,9 +12,10 @@ interface KPICardProps {
   unit: string;
   icon: React.ReactNode;
   trend?: string;
+  isLoading?: boolean;
 }
 
-const KPICard = ({ title, value, unit, icon, trend }: KPICardProps) => (
+const KPICard = ({ title, value, unit, icon, trend, isLoading }: KPICardProps) => (
   <Card className="p-4 bg-card border-dashboard-border hover:border-primary/30 transition-all group">
     <div className="flex items-start justify-between mb-3">
       <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -28,8 +30,14 @@ const KPICard = ({ title, value, unit, icon, trend }: KPICardProps) => (
         {title}
       </p>
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold font-telemetry">{value}</span>
-        <span className="text-sm text-muted-foreground">{unit}</span>
+        {isLoading ? (
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        ) : (
+          <>
+            <span className="text-2xl font-bold font-telemetry">{value}</span>
+            <span className="text-sm text-muted-foreground">{unit}</span>
+          </>
+        )}
       </div>
     </div>
   </Card>
@@ -38,6 +46,34 @@ const KPICard = ({ title, value, unit, icon, trend }: KPICardProps) => (
 const QuickLookDashboard = () => {
   const { selectedTopics, setSelectedTopics } = useBag();
   const [zoomRange, setZoomRange] = useState({ start: 0, end: 100 });
+  const { telemetry, isLoading } = useTelemetry();
+
+  // Compute KPIs from real telemetry data
+  const kpis = useMemo(() => {
+    if (!telemetry || telemetry.timestamps.length === 0) {
+      return {
+        duration: "00:00",
+        avgSpeed: 0,
+        maxSteering: 0,
+        totalEnergy: 0
+      };
+    }
+
+    const duration = telemetry.timestamps[telemetry.timestamps.length - 1];
+    const avgSpeed = telemetry.speed.reduce((a, b) => a + b, 0) / telemetry.speed.length;
+    const maxSteering = Math.max(...telemetry.steering.map(Math.abs));
+    const totalEnergy = telemetry.force.reduce((a, b) => a + Math.abs(b), 0) / 1000; // Simplified
+
+    const minutes = Math.floor(duration / 60);
+    const seconds = Math.floor(duration % 60);
+
+    return {
+      duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+      avgSpeed: avgSpeed.toFixed(1),
+      maxSteering: maxSteering.toFixed(1),
+      totalEnergy: (totalEnergy / 100).toFixed(1)
+    };
+  }, [telemetry]);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics(
@@ -61,29 +97,33 @@ const QuickLookDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Duration"
-          value="10:52"
+          value={kpis.duration}
           unit="min:sec"
           icon={<Activity className="h-5 w-5" />}
+          isLoading={isLoading}
         />
         <KPICard
           title="Avg Speed"
-          value="42.3"
+          value={String(kpis.avgSpeed)}
           unit="m/s"
           icon={<Gauge className="h-5 w-5" />}
           trend="+5.2%"
+          isLoading={isLoading}
         />
         <KPICard
           title="Max Steering"
-          value="27.3"
+          value={String(kpis.maxSteering)}
           unit="deg"
           icon={<TrendingUp className="h-5 w-5" />}
+          isLoading={isLoading}
         />
         <KPICard
           title="Total Energy"
-          value="8.4"
+          value={String(kpis.totalEnergy)}
           unit="kWh"
           icon={<Zap className="h-5 w-5" />}
           trend="-2.1%"
+          isLoading={isLoading}
         />
       </div>
 

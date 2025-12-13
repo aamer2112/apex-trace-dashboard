@@ -1,47 +1,144 @@
-import { useState } from "react";
-import { Upload, Database, Clock, Hash, Info, HelpCircle, Shield, Trash2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, Database, Clock, Hash, Info, HelpCircle, Shield, Trash2, Loader2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBag } from "@/contexts/BagContext";
+import { useBackendBags } from "@/hooks/useBackendBags";
 import AboutModal from "./AboutModal";
 import HelpModal from "./HelpModal";
 import AdminLoginModal from "./AdminLoginModal";
 import { toast } from "sonner";
 
 const BagSidebar = () => {
-  const { selectedBagId, setSelectedBagId, bags, deleteBag, isDemoMode, demoUploadsRemaining, isAdminLoggedIn } = useBag();
+  const { selectedBagId, setSelectedBagId, bags, deleteBag, addBag, isDemoMode, demoUploadsRemaining, isAdminLoggedIn } = useBag();
+  const { backendBags, isConnected, upload, remove, isLoading: backendLoading, refresh } = useBackendBags();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [adminLoginOpen, setAdminLoginOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpload = () => {
+  const handleUploadClick = () => {
     if (isDemoMode && demoUploadsRemaining <= 0) {
       toast.error("Demo limit reached. Please login with TUfast email to upload more bags.");
       setAdminLoginOpen(true);
       return;
     }
-    toast.info("Upload functionality - connect to backend API");
+    fileInputRef.current?.click();
   };
 
-  const handleDelete = (e: React.MouseEvent, bagId: string) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    
+    if (isConnected) {
+      // Upload to backend
+      const success = await upload(file);
+      if (success) {
+        // Add to local context as well
+        const newBag = {
+          id: `backend-${Date.now()}`,
+          name: file.name,
+          timestamp: new Date().toLocaleString(),
+          topics: 5,
+          duration: "00:00",
+          isDemo: false
+        };
+        addBag(newBag);
+        setSelectedBagId(newBag.id);
+        toast.success(`Uploaded ${file.name}`);
+      } else {
+        toast.error("Failed to upload bag to backend");
+      }
+    } else {
+      // Local-only mode
+      const newBag = {
+        id: `local-${Date.now()}`,
+        name: file.name,
+        timestamp: new Date().toLocaleString(),
+        topics: 5,
+        duration: "00:00",
+        isDemo: false
+      };
+      addBag(newBag);
+      setSelectedBagId(newBag.id);
+      toast.success(`Added ${file.name} (offline mode)`);
+    }
+    
+    setUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, bagId: string, bagName: string) => {
     e.stopPropagation();
-    deleteBag(bagId);
-    toast.success("Bag deleted");
+    
+    if (isConnected) {
+      const success = await remove(bagName);
+      if (success) {
+        deleteBag(bagId);
+        toast.success("Bag deleted from server");
+      } else {
+        // Still delete locally
+        deleteBag(bagId);
+        toast.info("Bag removed locally");
+      }
+    } else {
+      deleteBag(bagId);
+      toast.success("Bag deleted");
+    }
   };
 
   return (
     <>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".db3,.mcap,.bag"
+        className="hidden"
+      />
+      
       <aside className="fixed left-0 top-14 bottom-0 w-80 bg-card border-r border-dashboard-border flex flex-col">
         <div className="p-4 border-b border-dashboard-border">
-          <Button onClick={handleUpload} className="w-full glow-orange">
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Bag
+          <Button onClick={handleUploadClick} className="w-full glow-orange" disabled={uploading}>
+            {uploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Bag
+              </>
+            )}
           </Button>
-          {isDemoMode && (
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Demo: {demoUploadsRemaining} uploads remaining
-            </p>
-          )}
+          
+          {/* Connection status */}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-1.5 text-xs">
+              {isConnected ? (
+                <>
+                  <Wifi className="h-3 w-3 text-accent" />
+                  <span className="text-accent">Backend connected</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground">Offline mode</span>
+                </>
+              )}
+            </div>
+            {isDemoMode && (
+              <span className="text-xs text-muted-foreground">
+                {demoUploadsRemaining} left
+              </span>
+            )}
+          </div>
         </div>
 
         <ScrollArea className="flex-1 p-4">
@@ -76,7 +173,7 @@ const BagSidebar = () => {
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleDelete(e, bag.id)}
+                      onClick={(e) => handleDelete(e, bag.id, bag.name)}
                     >
                       <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>

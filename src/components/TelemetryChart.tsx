@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { Button } from "@/components/ui/button";
-import { Link2, Link2Off, RotateCcw } from "lucide-react";
+import { Link2, Link2Off, RotateCcw, Loader2 } from "lucide-react";
+import { useTelemetry } from "@/hooks/useTelemetry";
 
 interface TelemetryChartProps {
   topics: string[];
@@ -10,48 +11,19 @@ interface TelemetryChartProps {
   zoomRange?: { start: number; end: number };
 }
 
-// Generate sample data for demo
-const generateData = (topic: string, points = 500) => {
-  const data: [number, number][] = [];
-  for (let i = 0; i < points; i++) {
-    const t = i * 0.1;
-    let value = 0;
-    switch (topic) {
-      case "steering":
-        value = Math.sin(t * 0.5) * 25 + Math.sin(t * 2) * 5;
-        break;
-      case "speed":
-        value = 35 + Math.sin(t * 0.3) * 10 + Math.random() * 2;
-        break;
-      case "force":
-        value = 2200 + Math.sin(t * 0.7) * 800 + Math.random() * 100;
-        break;
-      case "brake":
-        value = Math.max(0, Math.sin(t * 0.4) * 50 + 20);
-        break;
-      case "yaw_moment":
-        value = Math.sin(t * 0.6) * 450 + Math.random() * 30;
-        break;
-      default:
-        value = Math.sin(t) * 10;
-    }
-    data.push([t, value]);
-  }
-  return data;
-};
-
-const topicConfig: Record<string, { color: string; unit: string; label: string }> = {
-  steering: { color: "#FF5400", unit: "deg", label: "Steering Angle" },
-  speed: { color: "#00C2A8", unit: "m/s", label: "Vehicle Speed" },
-  force: { color: "#FFD700", unit: "N", label: "Longitudinal Force" },
-  brake: { color: "#FF4444", unit: "%", label: "Brake Pressure" },
-  yaw_moment: { color: "#9B59B6", unit: "Nm", label: "Yaw Moment" }
+const topicConfig: Record<string, { color: string; unit: string; label: string; dataKey: keyof import("@/lib/api").TelemetryData }> = {
+  steering: { color: "#FF5400", unit: "deg", label: "Steering Angle", dataKey: "steering" },
+  speed: { color: "#00C2A8", unit: "m/s", label: "Vehicle Speed", dataKey: "speed" },
+  force: { color: "#FFD700", unit: "N", label: "Longitudinal Force", dataKey: "force" },
+  brake: { color: "#FF4444", unit: "%", label: "Brake Pressure", dataKey: "force" },
+  yaw_moment: { color: "#9B59B6", unit: "Nm", label: "Yaw Moment", dataKey: "yaw_moment" }
 };
 
 const TelemetryChart = ({ topics, linkedZoom = true, onZoomChange, zoomRange }: TelemetryChartProps) => {
   const chartRef = useRef<ReactECharts>(null);
   const [isLinked, setIsLinked] = useState(linkedZoom);
   const [internalZoom, setInternalZoom] = useState({ start: 0, end: 100 });
+  const { telemetry, isLoading, error } = useTelemetry();
 
   const effectiveZoom = zoomRange || internalZoom;
 
@@ -66,30 +38,70 @@ const TelemetryChart = ({ topics, linkedZoom = true, onZoomChange, zoomRange }: 
     }
   }, [zoomRange]);
 
-  const series = topics.map(topic => ({
-    name: topicConfig[topic]?.label || topic,
-    type: "line" as const,
-    data: generateData(topic),
-    smooth: true,
-    symbol: "none",
-    lineStyle: {
-      width: 2,
-      color: topicConfig[topic]?.color || "#FF5400"
-    },
-    areaStyle: {
-      color: {
-        type: "linear" as const,
-        x: 0,
-        y: 0,
-        x2: 0,
-        y2: 1,
-        colorStops: [
-          { offset: 0, color: `${topicConfig[topic]?.color || "#FF5400"}40` },
-          { offset: 1, color: `${topicConfig[topic]?.color || "#FF5400"}00` }
-        ]
+  // Build series from actual telemetry data
+  const series = topics.map(topic => {
+    const config = topicConfig[topic];
+    const dataKey = config?.dataKey || "steering";
+    
+    // Use real data if available, otherwise generate fallback
+    let data: [number, number][] = [];
+    
+    if (telemetry && telemetry.timestamps.length > 0) {
+      const values = telemetry[dataKey] as number[];
+      data = telemetry.timestamps.map((t, i) => [t, values[i] || 0]);
+    } else {
+      // Fallback to generated data for demo
+      for (let i = 0; i < 500; i++) {
+        const t = i * 0.1;
+        let value = 0;
+        switch (topic) {
+          case "steering":
+            value = Math.sin(t * 0.5) * 25 + Math.sin(t * 2) * 5;
+            break;
+          case "speed":
+            value = 35 + Math.sin(t * 0.3) * 10 + Math.random() * 2;
+            break;
+          case "force":
+            value = 2200 + Math.sin(t * 0.7) * 800 + Math.random() * 100;
+            break;
+          case "brake":
+            value = Math.max(0, Math.sin(t * 0.4) * 50 + 20);
+            break;
+          case "yaw_moment":
+            value = Math.sin(t * 0.6) * 450 + Math.random() * 30;
+            break;
+          default:
+            value = Math.sin(t) * 10;
+        }
+        data.push([t, value]);
       }
     }
-  }));
+
+    return {
+      name: config?.label || topic,
+      type: "line" as const,
+      data,
+      smooth: true,
+      symbol: "none",
+      lineStyle: {
+        width: 2,
+        color: config?.color || "#FF5400"
+      },
+      areaStyle: {
+        color: {
+          type: "linear" as const,
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: `${config?.color || "#FF5400"}40` },
+            { offset: 1, color: `${config?.color || "#FF5400"}00` }
+          ]
+        }
+      }
+    };
+  });
 
   const option = {
     backgroundColor: "transparent",
@@ -233,6 +245,15 @@ const TelemetryChart = ({ topics, linkedZoom = true, onZoomChange, zoomRange }: 
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="h-[300px] flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading telemetry...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <div className="absolute top-2 right-2 z-10 flex gap-1">
@@ -255,6 +276,9 @@ const TelemetryChart = ({ topics, linkedZoom = true, onZoomChange, zoomRange }: 
           <RotateCcw className="h-4 w-4" />
         </Button>
       </div>
+      {error && (
+        <p className="text-xs text-amber-500 mb-2">{error}</p>
+      )}
       <ReactECharts
         ref={chartRef}
         option={option}
