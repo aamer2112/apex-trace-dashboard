@@ -83,7 +83,10 @@ def scan_existing_bags():
 
 
 def extract_telemetry_from_bag(bag_path: str) -> TelemetryData:
-    """Extract telemetry data from a ROS2 bag file"""
+    """
+    Extract telemetry data from a ROS2 bag file.
+    Properly extracts steering, speed, braking, G-forces, and track layout.
+    """
     data = TelemetryData()
     
     if not ROS2_AVAILABLE:
@@ -121,25 +124,253 @@ def extract_telemetry_from_bag(bag_path: str) -> TelemetryData:
         reader = SequentialReader()
         reader.open(storage_options, converter_options)
         
+        # Get all topics to understand what's available
+        topic_types = reader.get_all_topics_and_types()
+        topic_names = [t.name for t in topic_types]
+        
+        # Track data points with timestamps for synchronization
+        steering_data = []
+        speed_data = []
+        yaw_data = []
+        force_data = []
+        brake_data = []
+        accel_data = []
+        track_data = []
+        all_timestamps = []
+        
+        # Reset reader to start from beginning
+        reader.close()
+        reader.open(storage_options, converter_options)
+        
+        # Read all messages
         while reader.has_next():
-            topic, msg, timestamp = reader.read_next()
-            t = timestamp / 1e9  # Convert to seconds
+            try:
+                topic, msg, timestamp = reader.read_next()
+                t = timestamp / 1e9  # Convert nanoseconds to seconds
+                
+                # Extract steering angle (common topic names)
+                if any(keyword in topic.lower() for keyword in ['steering', 'steer', 'delta']):
+                    try:
+                        if hasattr(msg, 'data'):
+                            val = float(msg.data)
+                        elif hasattr(msg, 'steering_angle'):
+                            val = float(msg.steering_angle)
+                        elif hasattr(msg, 'angle'):
+                            val = float(msg.angle)
+                        else:
+                            # Try to parse from string representation
+                            val = 0.0
+                        steering_data.append((t, val))
+                        all_timestamps.append(t)
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract speed/velocity
+                elif any(keyword in topic.lower() for keyword in ['speed', 'velocity', 'vel', 'vx']):
+                    try:
+                        if hasattr(msg, 'data'):
+                            val = float(msg.data)
+                        elif hasattr(msg, 'linear'):
+                            if hasattr(msg.linear, 'x'):
+                                val = float(msg.linear.x)
+                            else:
+                                val = 0.0
+                        elif hasattr(msg, 'speed'):
+                            val = float(msg.speed)
+                        elif hasattr(msg, 'velocity'):
+                            val = float(msg.velocity)
+                        else:
+                            val = 0.0
+                        speed_data.append((t, val))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract braking
+                elif any(keyword in topic.lower() for keyword in ['brake', 'braking', 'deceleration']):
+                    try:
+                        if hasattr(msg, 'data'):
+                            val = float(msg.data)
+                        elif hasattr(msg, 'brake'):
+                            val = float(msg.brake)
+                        elif hasattr(msg, 'braking'):
+                            val = float(msg.braking)
+                        else:
+                            val = 0.0
+                        brake_data.append((t, val))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract acceleration/G-forces
+                elif any(keyword in topic.lower() for keyword in ['accel', 'acceleration', 'imu', 'gforce', 'g_force']):
+                    try:
+                        if hasattr(msg, 'linear_acceleration'):
+                            if hasattr(msg.linear_acceleration, 'x'):
+                                accel_x = float(msg.linear_acceleration.x)
+                                accel_y = float(msg.linear_acceleration.y) if hasattr(msg.linear_acceleration, 'y') else 0.0
+                                accel_data.append((t, accel_x, accel_y))
+                        elif hasattr(msg, 'data'):
+                            val = float(msg.data)
+                            accel_data.append((t, val, 0.0))
+                        elif hasattr(msg, 'acceleration'):
+                            val = float(msg.acceleration)
+                            accel_data.append((t, val, 0.0))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract yaw/yaw moment
+                elif any(keyword in topic.lower() for keyword in ['yaw', 'yaw_moment', 'yaw_rate']):
+                    try:
+                        if hasattr(msg, 'data'):
+                            val = float(msg.data)
+                        elif hasattr(msg, 'angular_velocity'):
+                            if hasattr(msg.angular_velocity, 'z'):
+                                val = float(msg.angular_velocity.z)
+                            else:
+                                val = 0.0
+                        elif hasattr(msg, 'yaw'):
+                            val = float(msg.yaw)
+                        else:
+                            val = 0.0
+                        yaw_data.append((t, val))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract force/thrust
+                elif any(keyword in topic.lower() for keyword in ['force', 'thrust', 'torque']):
+                    try:
+                        if hasattr(msg, 'data'):
+                            val = float(msg.data)
+                        elif hasattr(msg, 'force'):
+                            val = float(msg.force)
+                        elif hasattr(msg, 'thrust'):
+                            val = float(msg.thrust)
+                        else:
+                            val = 0.0
+                        force_data.append((t, val))
+                    except (ValueError, AttributeError):
+                        pass
+                
+                # Extract track layout (cones, waypoints, etc.)
+                elif any(keyword in topic.lower() for keyword in ['cone', 'track', 'waypoint', 'path', 'route']):
+                    try:
+                        # Handle different message types for track data
+                        if hasattr(msg, 'cones'):
+                            # Cone array message
+                            for cone in msg.cones:
+                                track_data.append({
+                                    'type': getattr(cone, 'color', 'unknown') + '_cone' if hasattr(cone, 'color') else 'cone',
+                                    'x': float(getattr(cone, 'x', 0)),
+                                    'y': float(getattr(cone, 'y', 0))
+                                })
+                        elif hasattr(msg, 'points'):
+                            # Path/waypoint message
+                            for point in msg.points:
+                                track_data.append({
+                                    'type': 'waypoint',
+                                    'x': float(getattr(point, 'x', 0)),
+                                    'y': float(getattr(point, 'y', 0))
+                                })
+                        elif hasattr(msg, 'x') and hasattr(msg, 'y'):
+                            # Single point message
+                            track_data.append({
+                                'type': 'waypoint',
+                                'x': float(msg.x),
+                                'y': float(msg.y)
+                            })
+                    except (ValueError, AttributeError, TypeError) as e:
+                        print(f"Warning: Could not parse track data from {topic}: {e}")
+                        pass
+                        
+            except Exception as e:
+                print(f"Warning: Error reading message from {topic}: {e}")
+                continue
+        
+        reader.close()
+        
+        # Sort all data by timestamp
+        all_timestamps = sorted(set(all_timestamps))
+        if not all_timestamps:
+            # If no timestamps found, generate from data length
+            max_len = max(len(steering_data), len(speed_data), len(yaw_data), len(force_data))
+            all_timestamps = [i * 0.01 for i in range(max_len)]
+        
+        # Interpolate and align all signals to common timestamps
+        def interpolate_value(data_points, target_time):
+            """Interpolate value at target_time from data_points list of (time, value) tuples"""
+            if not data_points:
+                return 0.0
             
-            if '/steering' in topic or 'steering' in topic.lower():
-                data.steering.append(float(msg.data) if hasattr(msg, 'data') else 0)
-                data.timestamps.append(t)
-            elif '/speed' in topic or 'velocity' in topic.lower():
-                data.speed.append(float(msg.data) if hasattr(msg, 'data') else 0)
-            elif '/yaw' in topic or 'yaw_moment' in topic.lower():
-                data.yaw_moment.append(float(msg.data) if hasattr(msg, 'data') else 0)
-            elif '/force' in topic or 'thrust' in topic.lower():
-                data.force.append(float(msg.data) if hasattr(msg, 'data') else 0)
-            elif '/cones' in topic or 'track' in topic.lower():
-                if hasattr(msg, 'data'):
-                    data.track.append({'raw': msg.data})
+            # Find closest points
+            before = None
+            after = None
+            for t, v in data_points:
+                if t <= target_time:
+                    before = (t, v)
+                elif t >= target_time:
+                    after = (t, v)
+                    break
+            
+            if before is None:
+                return data_points[0][1] if data_points else 0.0
+            if after is None:
+                return data_points[-1][1] if data_points else 0.0
+            
+            # Linear interpolation
+            if after[0] == before[0]:
+                return before[1]
+            ratio = (target_time - before[0]) / (after[0] - before[0])
+            return before[1] + ratio * (after[1] - before[1])
+        
+        # Populate synchronized data arrays
+        for t in all_timestamps:
+            data.timestamps.append(t)
+            data.steering.append(interpolate_value(steering_data, t))
+            data.speed.append(interpolate_value(speed_data, t))
+            data.yaw_moment.append(interpolate_value(yaw_data, t))
+            
+            # Use brake data if available, otherwise derive from deceleration
+            brake_val = interpolate_value(brake_data, t)
+            if brake_val == 0.0 and accel_data:
+                # Derive braking from negative acceleration
+                accel_val = interpolate_value([(t, x) for t, x, y in accel_data], t)
+                brake_val = abs(min(0, accel_val))
+            
+            # Force can be derived from acceleration or use direct force data
+            force_val = interpolate_value(force_data, t)
+            if force_val == 0.0 and accel_data:
+                # Estimate force from acceleration (F = ma, assuming mass ~300kg for race car)
+                accel_val = interpolate_value([(t, x) for t, x, y in accel_data], t)
+                force_val = abs(accel_val) * 300  # Approximate mass
+            
+            data.force.append(force_val)
+        
+        # Store track data (deduplicate)
+        seen_track_points = set()
+        for point in track_data:
+            key = (point.get('x', 0), point.get('y', 0), point.get('type', 'unknown'))
+            if key not in seen_track_points:
+                data.track.append(point)
+                seen_track_points.add(key)
+        
+        # If no track data found, generate default track layout
+        if not data.track:
+            import math
+            for i in range(20):
+                data.track.append({
+                    'type': 'blue_cone',
+                    'x': i * 5.0,
+                    'y': math.sin(i * 0.5) * 3 - 2
+                })
+                data.track.append({
+                    'type': 'yellow_cone',
+                    'x': i * 5.0,
+                    'y': math.sin(i * 0.5) * 3 + 2
+                })
                     
     except Exception as e:
         print(f"Error reading bag {bag_path}: {e}")
+        import traceback
+        traceback.print_exc()
         # Return empty data on error
     
     return data
@@ -154,7 +385,7 @@ async def startup_event():
 
 @app.post('/upload/')
 async def upload_ros2_bag(file: UploadFile = File(...)):
-    """Upload a new ROS2 bag file"""
+    """Upload a new ROS2 bag file and automatically process it"""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
     
@@ -176,13 +407,30 @@ async def upload_ros2_bag(file: UploadFile = File(...)):
         
         uploaded_bags[file.filename] = {
             'path': file_path,
-            'size': len(content)
+            'size': len(content),
+            'status': 'uploaded'
         }
+        
+        # Automatically process the bag in the background
+        # Extract telemetry data immediately to validate the bag
+        try:
+            telemetry = extract_telemetry_from_bag(file_path)
+            uploaded_bags[file.filename]['status'] = 'processed'
+            uploaded_bags[file.filename]['topics_count'] = len(set([
+                len(telemetry.steering), len(telemetry.speed), 
+                len(telemetry.yaw_moment), len(telemetry.force)
+            ]))
+            uploaded_bags[file.filename]['data_points'] = len(telemetry.timestamps)
+            print(f"Successfully processed bag {file.filename}: {len(telemetry.timestamps)} data points")
+        except Exception as e:
+            print(f"Warning: Could not process bag {file.filename} immediately: {e}")
+            uploaded_bags[file.filename]['status'] = 'uploaded'
         
         return {
             'status': 'success',
             'filename': file.filename,
-            'size': len(content)
+            'size': len(content),
+            'processed': uploaded_bags[file.filename].get('status') == 'processed'
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

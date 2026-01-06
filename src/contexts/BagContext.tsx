@@ -35,17 +35,29 @@ export const BagProvider = ({ children }: { children: ReactNode }) => {
   const [selectedBagId, setSelectedBagId] = useState("1");
   const [bags, setBags] = useState<BagData[]>(() => {
     const stored = localStorage.getItem("apextrace-bags");
+    const deletedBags = localStorage.getItem("apextrace-deleted-bags");
+    const deletedBagIds = deletedBags ? new Set(JSON.parse(deletedBags)) : new Set<string>();
+    
     if (stored) {
       const parsed = JSON.parse(stored);
-      return parsed.length > 0 ? parsed : defaultBags;
+      // Filter out deleted bags
+      const filtered = parsed.filter((bag: BagData) => !deletedBagIds.has(bag.id));
+      // Only use default bags if no stored bags exist and user hasn't deleted anything
+      if (filtered.length > 0) {
+        return filtered;
+      } else if (!deletedBags) {
+        // Only return defaults if user hasn't explicitly deleted anything
+        return defaultBags;
+      }
+      return [];
     }
     return defaultBags;
   });
   const [isAdminLoggedIn, setAdminLoggedIn] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>(["steering", "speed"]);
 
-  const demoUploadsRemaining = 3 - bags.filter(b => !b.isDemo).length;
-  const isDemoMode = !isAdminLoggedIn;
+  const demoUploadsRemaining = Infinity; // No limit
+  const isDemoMode = false; // No demo mode restrictions
 
   useEffect(() => {
     localStorage.setItem("apextrace-bags", JSON.stringify(bags));
@@ -54,8 +66,16 @@ export const BagProvider = ({ children }: { children: ReactNode }) => {
   const deleteBag = (id: string) => {
     setBags(prev => {
       const updated = prev.filter(b => b.id !== id);
+      // Track deleted bag IDs so they don't reappear
+      const deletedBags = localStorage.getItem("apextrace-deleted-bags");
+      const deletedSet = deletedBags ? new Set(JSON.parse(deletedBags)) : new Set<string>();
+      deletedSet.add(id);
+      localStorage.setItem("apextrace-deleted-bags", JSON.stringify(Array.from(deletedSet)));
+      
       if (selectedBagId === id && updated.length > 0) {
         setSelectedBagId(updated[0].id);
+      } else if (updated.length === 0) {
+        setSelectedBagId("");
       }
       return updated;
     });

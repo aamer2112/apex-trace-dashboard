@@ -5,12 +5,12 @@ import tufastLogo from "@/assets/tufast-logo.png";
 const HeroBackground = () => {
   return (
     <div className="absolute inset-0 overflow-hidden hero-gradient">
-      {/* Tufast Logo - Large watermark */}
+      {/* Tufast Logo - Large faded watermark, centered */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 0.08, scale: 1 }}
         transition={{ duration: 2, ease: "easeOut" }}
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-auto"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-auto"
       >
         <img 
           src={tufastLogo} 

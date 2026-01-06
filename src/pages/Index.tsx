@@ -20,15 +20,6 @@ const Index = () => {
         <HeroBackground />
         
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-6">
-          {/* Large TUfast Logo */}
-          <motion.img
-            src={tufastLogo}
-            alt="TU Fast Racing"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8 }}
-            className="h-32 md:h-40 w-auto mb-8"
-          />
           
           <motion.div
             initial={{ opacity: 0, y: 20 }}

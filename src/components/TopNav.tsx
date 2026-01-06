@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
 import { useBag } from "@/contexts/BagContext";
 import { listBags, checkBackendHealth } from "@/lib/api";
-import tufastLogo from "@/assets/tufast-logo.png";
 
 const TopNav = () => {
   const [searchOpen, setSearchOpen] = useState(false);
@@ -57,10 +56,8 @@ const TopNav = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-dashboard-border bg-dashboard-panel/95 backdrop-blur-xl">
       <div className="flex items-center justify-between h-full px-6">
-        {/* Left: Logo & Title */}
+        {/* Left: Title */}
         <div className="flex items-center gap-4">
-          <img src={tufastLogo} alt="TU Fast" className="h-7 w-auto" />
-          <div className="h-6 w-px bg-dashboard-border" />
           <h1 className="text-sm font-semibold tracking-wider">
             ROSBAG-<span className="text-primary">APEXTRACE</span>
           </h1>

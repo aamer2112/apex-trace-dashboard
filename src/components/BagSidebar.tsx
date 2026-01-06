@@ -1,29 +1,22 @@
 import { useState, useRef } from "react";
-import { Upload, Database, Clock, Hash, Info, HelpCircle, Shield, Trash2, Loader2, Wifi, WifiOff } from "lucide-react";
+import { Upload, Database, Clock, Hash, Info, HelpCircle, Trash2, Loader2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBag } from "@/contexts/BagContext";
 import { useBackendBags } from "@/hooks/useBackendBags";
 import AboutModal from "./AboutModal";
 import HelpModal from "./HelpModal";
-import AdminLoginModal from "./AdminLoginModal";
 import { toast } from "sonner";
 
 const BagSidebar = () => {
-  const { selectedBagId, setSelectedBagId, bags, deleteBag, addBag, isDemoMode, demoUploadsRemaining, isAdminLoggedIn } = useBag();
+  const { selectedBagId, setSelectedBagId, bags, deleteBag, addBag } = useBag();
   const { backendBags, isConnected, upload, remove, isLoading: backendLoading, refresh } = useBackendBags();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
-    if (isDemoMode && demoUploadsRemaining <= 0) {
-      toast.error("Demo limit reached. Please login with TUfast email to upload more bags.");
-      setAdminLoginOpen(true);
-      return;
-    }
     fileInputRef.current?.click();
   };
 
@@ -133,11 +126,6 @@ const BagSidebar = () => {
                 </>
               )}
             </div>
-            {isDemoMode && (
-              <span className="text-xs text-muted-foreground">
-                {demoUploadsRemaining} left
-              </span>
-            )}
           </div>
         </div>
 
@@ -220,23 +208,6 @@ const BagSidebar = () => {
 
         {/* Bottom buttons */}
         <div className="p-4 border-t border-dashboard-border space-y-2">
-          {!isAdminLoggedIn && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-xs text-muted-foreground hover:text-primary"
-              onClick={() => setAdminLoginOpen(true)}
-            >
-              <Shield className="mr-2 h-3 w-3" />
-              TUfast Admin Login
-            </Button>
-          )}
-          {isAdminLoggedIn && (
-            <p className="text-xs text-accent flex items-center gap-2 px-2">
-              <Shield className="h-3 w-3" />
-              Admin access enabled
-            </p>
-          )}
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -262,7 +233,6 @@ const BagSidebar = () => {
 
       <AboutModal open={aboutOpen} onOpenChange={setAboutOpen} />
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
-      <AdminLoginModal open={adminLoginOpen} onOpenChange={setAdminLoginOpen} />
     </>
   );
 };
