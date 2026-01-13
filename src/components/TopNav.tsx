@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
 import { useBag } from "@/contexts/BagContext";
 import { listBags, checkBackendHealth } from "@/lib/api";
+import { AIChatSidebar } from "@/components/AIChatSidebar";
 
 const TopNav = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [backendBags, setBackendBags] = useState<string[]>([]);
   const [backendConnected, setBackendConnected] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
   const { bags, setSelectedBagId } = useBag();
 
   const navItems = [
@@ -77,7 +79,7 @@ const TopNav = () => {
           ))}
         </div>
 
-        {/* Right: Search Bar */}
+        {/* Right: Search Bar + AI Button */}
         <div className="flex items-center gap-2 relative">
           {searchOpen ? (
             <div className="flex items-center gap-2">
@@ -114,8 +116,22 @@ const TopNav = () => {
               <Search className="h-4 w-4" />
             </Button>
           )}
+
+          {/* AI Chat Toggle Button */}
+          <Button
+            onClick={() => setAiChatOpen(!aiChatOpen)}
+            size="icon"
+            className={`h-8 w-8 bg-primary hover:bg-primary/90 transition-all ${
+              aiChatOpen ? "ring-2 ring-primary/50 ring-offset-2 ring-offset-background" : ""
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      {/* AI Chat Sidebar */}
+      <AIChatSidebar isOpen={aiChatOpen} onClose={() => setAiChatOpen(false)} />
     </nav>
   );
 };
