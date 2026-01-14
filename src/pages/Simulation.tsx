@@ -7,22 +7,73 @@ import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
 import { streamBagData, generateMockTelemetry, TelemetryData } from "@/lib/api";
 
-// Cone positions for the track (relative coordinates 0-100)
-const blueCones = [
-  { x: 15, y: 20 }, { x: 25, y: 15 }, { x: 40, y: 12 }, { x: 55, y: 15 },
-  { x: 70, y: 22 }, { x: 80, y: 35 }, { x: 85, y: 50 }, { x: 82, y: 65 },
-  { x: 72, y: 78 }, { x: 55, y: 85 }, { x: 38, y: 82 }, { x: 22, y: 72 },
-  { x: 12, y: 55 }, { x: 10, y: 38 }
+// Monza-inspired track outline points (simplified representation)
+const trackOuterPath = `
+  M 15 50
+  L 15 25
+  Q 15 15 25 15
+  L 45 15
+  Q 55 15 60 20
+  L 75 35
+  Q 85 45 85 55
+  L 85 70
+  Q 85 80 75 85
+  L 55 85
+  Q 45 85 40 80
+  L 25 65
+  Q 15 55 15 50
+  Z
+`;
+
+const trackInnerPath = `
+  M 25 50
+  L 25 30
+  Q 25 22 33 22
+  L 43 22
+  Q 50 22 55 27
+  L 68 40
+  Q 75 48 75 55
+  L 75 65
+  Q 75 72 68 77
+  L 53 77
+  Q 48 77 44 73
+  L 32 60
+  Q 25 53 25 50
+  Z
+`;
+
+// Define key points along the track for car movement
+const trackPoints = [
+  { x: 20, y: 50 }, { x: 20, y: 35 }, { x: 20, y: 25 }, { x: 28, y: 18 },
+  { x: 40, y: 18 }, { x: 52, y: 20 }, { x: 62, y: 28 }, { x: 72, y: 40 },
+  { x: 80, y: 52 }, { x: 80, y: 65 }, { x: 78, y: 75 }, { x: 70, y: 82 },
+  { x: 58, y: 82 }, { x: 48, y: 78 }, { x: 38, y: 70 }, { x: 28, y: 58 },
 ];
 
-const yellowCones = [
-  { x: 25, y: 30 }, { x: 35, y: 25 }, { x: 50, y: 22 }, { x: 62, y: 28 },
-  { x: 72, y: 40 }, { x: 75, y: 52 }, { x: 70, y: 65 }, { x: 60, y: 75 },
-  { x: 45, y: 78 }, { x: 32, y: 72 }, { x: 22, y: 60 }, { x: 20, y: 45 }
+// Optimal racing line points (the ideal path - GREEN)
+const optimalLinePoints = [
+  { x: 22, y: 50 }, { x: 21, y: 38 }, { x: 22, y: 26 }, { x: 30, y: 17 },
+  { x: 42, y: 16 }, { x: 55, y: 18 }, { x: 68, y: 30 }, { x: 78, y: 45 },
+  { x: 80, y: 58 }, { x: 78, y: 72 }, { x: 68, y: 82 }, { x: 54, y: 83 },
+  { x: 42, y: 78 }, { x: 32, y: 68 }, { x: 24, y: 56 },
 ];
 
-// Racing line path
-const racingLinePath = "M 20 35 Q 30 20 50 18 Q 75 20 80 45 Q 82 70 60 80 Q 35 85 20 60 Q 15 45 20 35";
+// Actual racing line points (the path the car takes - RED)
+const actualLinePoints = [
+  { x: 23, y: 52 }, { x: 24, y: 40 }, { x: 26, y: 28 }, { x: 34, y: 20 },
+  { x: 45, y: 19 }, { x: 58, y: 22 }, { x: 70, y: 34 }, { x: 77, y: 48 },
+  { x: 78, y: 60 }, { x: 74, y: 74 }, { x: 64, y: 80 }, { x: 50, y: 80 },
+  { x: 40, y: 74 }, { x: 30, y: 64 }, { x: 25, y: 54 },
+];
+
+// Convert points to SVG path
+const pointsToPath = (points: { x: number; y: number }[]): string => {
+  if (points.length === 0) return "";
+  return points.reduce((path, point, i) => {
+    if (i === 0) return `M ${point.x} ${point.y}`;
+    return `${path} L ${point.x} ${point.y}`;
+  }, "");
+};
 
 const Simulation = () => {
   const { selectedBagId, bags } = useBag();
@@ -41,12 +92,10 @@ const Simulation = () => {
     if (!currentBag) return;
     setIsLoading(true);
     
-    // Try to fetch from backend, fallback to mock data
     const data = await streamBagData(currentBag.name);
     if (data) {
       setTelemetryData(data);
     } else {
-      // Use mock data if backend unavailable
       setTelemetryData(generateMockTelemetry(currentBag.name, 500));
     }
     setIsLoading(false);
@@ -62,7 +111,6 @@ const Simulation = () => {
     ? telemetryData.timestamps[telemetryData.timestamps.length - 1] 
     : 652;
 
-  // Car position along the track (0-1)
   const [carProgress, setCarProgress] = useState(0);
 
   // Get current telemetry values
@@ -74,21 +122,36 @@ const Simulation = () => {
   const gForceX = Math.cos(currentTime * 0.5) * (speed / 40);
   const gForceY = Math.sin(currentTime * 0.3) * (speed / 60);
 
-  // Calculate car position on track
+  // Calculate car position on track following actual line
   const getCarPosition = (progress: number) => {
-    const angle = progress * Math.PI * 2;
-    const centerX = 50;
-    const centerY = 50;
-    const radiusX = 30;
-    const radiusY = 25;
-    return {
-      x: centerX + Math.cos(angle) * radiusX,
-      y: centerY + Math.sin(angle) * radiusY,
-      rotation: (angle * 180 / Math.PI) + 90
-    };
+    const totalPoints = actualLinePoints.length;
+    const exactIndex = progress * (totalPoints - 1);
+    const index = Math.floor(exactIndex);
+    const nextIndex = Math.min(index + 1, totalPoints - 1);
+    const t = exactIndex - index;
+    
+    const current = actualLinePoints[index];
+    const next = actualLinePoints[nextIndex];
+    
+    const x = current.x + (next.x - current.x) * t;
+    const y = current.y + (next.y - current.y) * t;
+    
+    // Calculate rotation based on direction
+    const dx = next.x - current.x;
+    const dy = next.y - current.y;
+    const rotation = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    return { x, y, rotation };
   };
 
   const carPosition = getCarPosition(carProgress);
+
+  // Get visible portion of racing lines based on car progress
+  const getVisibleLinePath = (points: { x: number; y: number }[], progress: number) => {
+    const visibleCount = Math.max(2, Math.ceil(progress * points.length) + 3);
+    const visiblePoints = points.slice(0, Math.min(visibleCount, points.length));
+    return pointsToPath(visiblePoints);
+  };
 
   useEffect(() => {
     if (isPlaying && telemetryData) {
@@ -103,7 +166,7 @@ const Simulation = () => {
           return next >= maxTime ? 0 : next;
         });
         setCarProgress(prev => {
-          const next = prev + (0.0005 * playbackSpeed);
+          const next = prev + (0.002 * playbackSpeed);
           return next >= 1 ? 0 : next;
         });
         animationRef.current = requestAnimationFrame(animate);
@@ -145,7 +208,7 @@ const Simulation = () => {
           <div className="mb-6">
             <h2 className="text-2xl font-bold mb-2">2D Track Simulation</h2>
             <p className="text-sm text-muted-foreground">
-              {currentBag?.name || `Bag #${selectedBagId}`} • Real-time replay with synchronized telemetry
+              {currentBag?.name || `Bag #${selectedBagId}`} • Monza-style circuit with racing line comparison
             </p>
           </div>
 
@@ -175,69 +238,108 @@ const Simulation = () => {
                   preserveAspectRatio="xMidYMid meet"
                   style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
                 >
-                  {/* Track surface */}
-                  <ellipse cx="50" cy="50" rx="35" ry="30" fill="hsl(var(--muted))" opacity="0.3" />
-                  <ellipse cx="50" cy="50" rx="25" ry="20" fill="hsl(var(--background))" />
-                  
-                  {/* Racing line */}
+                  {/* Track surface (outer) */}
                   <path 
-                    d={racingLinePath} 
-                    fill="none" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth="0.5" 
-                    strokeDasharray="2,1"
+                    d={trackOuterPath}
+                    fill="hsl(var(--muted))"
+                    opacity="0.4"
+                  />
+                  
+                  {/* Track inner cutout */}
+                  <path 
+                    d={trackInnerPath}
+                    fill="hsl(var(--background))"
+                  />
+                  
+                  {/* Track borders */}
+                  <path 
+                    d={trackOuterPath}
+                    fill="none"
+                    stroke="hsl(var(--foreground))"
+                    strokeWidth="0.8"
+                    opacity="0.6"
+                  />
+                  <path 
+                    d={trackInnerPath}
+                    fill="none"
+                    stroke="hsl(var(--foreground))"
+                    strokeWidth="0.8"
                     opacity="0.6"
                   />
                   
-                  {/* Blue cones (left side) */}
-                  {blueCones.map((cone, i) => (
-                    <g key={`blue-${i}`}>
-                      <polygon 
-                        points={`${cone.x},${cone.y - 1.5} ${cone.x - 1},${cone.y + 1} ${cone.x + 1},${cone.y + 1}`}
-                        fill="hsl(210, 100%, 50%)"
-                      />
-                    </g>
-                  ))}
-                  
-                  {/* Yellow cones (right side) */}
-                  {yellowCones.map((cone, i) => (
-                    <g key={`yellow-${i}`}>
-                      <polygon 
-                        points={`${cone.x},${cone.y - 1.5} ${cone.x - 1},${cone.y + 1} ${cone.x + 1},${cone.y + 1}`}
-                        fill="hsl(45, 100%, 50%)"
-                      />
-                    </g>
-                  ))}
-                  
-                  {/* Car path trail */}
-                  <ellipse 
-                    cx="50" 
-                    cy="50" 
-                    rx="30" 
-                    ry="25" 
-                    fill="none" 
-                    stroke="hsl(var(--accent))" 
-                    strokeWidth="0.3"
-                    strokeDasharray="1,2"
-                    opacity="0.4"
+                  {/* Optimal racing line (GREEN) - full path faded */}
+                  <path 
+                    d={pointsToPath(optimalLinePoints) + " Z"}
+                    fill="none"
+                    stroke="hsl(142, 76%, 36%)"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.3"
                   />
+                  
+                  {/* Optimal racing line trail (GREEN) - visible portion */}
+                  <path 
+                    d={getVisibleLinePath(optimalLinePoints, carProgress)}
+                    fill="none"
+                    stroke="hsl(142, 76%, 36%)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="drop-shadow-[0_0_4px_hsl(142,76%,36%)]"
+                  />
+                  
+                  {/* Actual racing line (RED) - full path faded */}
+                  <path 
+                    d={pointsToPath(actualLinePoints) + " Z"}
+                    fill="none"
+                    stroke="hsl(0, 84%, 50%)"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    opacity="0.3"
+                  />
+                  
+                  {/* Actual racing line trail (RED) - visible portion behind car */}
+                  <path 
+                    d={getVisibleLinePath(actualLinePoints, carProgress)}
+                    fill="none"
+                    stroke="hsl(0, 84%, 50%)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="drop-shadow-[0_0_4px_hsl(0,84%,50%)]"
+                  />
+                  
+                  {/* Start/Finish line */}
+                  <line x1="18" y1="48" x2="26" y2="48" stroke="hsl(var(--foreground))" strokeWidth="1" />
+                  <text x="22" y="46" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="2.5">S/F</text>
                   
                   {/* Car */}
                   <g transform={`translate(${carPosition.x}, ${carPosition.y}) rotate(${carPosition.rotation})`}>
                     {/* Car body */}
-                    <rect x="-1.5" y="-3" width="3" height="6" rx="0.5" fill="hsl(var(--primary))" />
+                    <rect x="-1.2" y="-2" width="2.4" height="4" rx="0.4" fill="hsl(var(--primary))" />
                     {/* Front indicator */}
-                    <rect x="-0.5" y="-3.5" width="1" height="1" fill="hsl(var(--foreground))" />
+                    <rect x="-0.4" y="1.5" width="0.8" height="0.6" fill="hsl(var(--foreground))" />
                     {/* Wheels */}
-                    <rect x="-2" y="-2.5" width="0.6" height="1.5" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="1.4" y="-2.5" width="0.6" height="1.5" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="-2" y="1" width="0.6" height="1.5" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="1.4" y="1" width="0.6" height="1.5" fill="hsl(var(--muted-foreground))" rx="0.1" />
+                    <rect x="-1.6" y="-1.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
+                    <rect x="1.1" y="-1.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
+                    <rect x="-1.6" y="0.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
+                    <rect x="1.1" y="0.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
                   </g>
-                  
-                  {/* Start/Finish line */}
-                  <line x1="20" y1="33" x2="20" y2="37" stroke="hsl(var(--foreground))" strokeWidth="0.5" />
                 </svg>
+              </div>
+
+              {/* Racing Line Legend */}
+              <div className="mt-4 flex items-center justify-center gap-6 p-3 bg-muted/30 rounded-lg border border-dashboard-border">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 rounded-full bg-[hsl(142,76%,36%)]" />
+                  <span className="text-xs text-muted-foreground">Optimal Racing Line</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 rounded-full bg-[hsl(0,84%,50%)]" />
+                  <span className="text-xs text-muted-foreground">Actual Path Taken</span>
+                </div>
               </div>
             </Card>
 
@@ -373,15 +475,15 @@ const Simulation = () => {
               
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Speed:</span>
-                {[0.5, 1, 2, 4].map((speed) => (
+                {[0.5, 1, 2, 4].map((s) => (
                   <Button
-                    key={speed}
-                    variant={playbackSpeed === speed ? "default" : "ghost"}
+                    key={s}
+                    variant={playbackSpeed === s ? "default" : "ghost"}
                     size="sm"
-                    onClick={() => setPlaybackSpeed(speed)}
+                    onClick={() => setPlaybackSpeed(s)}
                     className="h-7 text-xs"
                   >
-                    {speed}x
+                    {s}x
                   </Button>
                 ))}
               </div>

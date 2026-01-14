@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Sparkles, Zap, HelpCircle, BarChart3 } from "lucide-react";
+import { X, Send, Sparkles, Zap, HelpCircle, BarChart3, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useBag } from "@/contexts/BagContext";
 import { useLocation } from "react-router-dom";
@@ -154,119 +154,107 @@ export const AIChatSidebar = ({ isOpen, onClose }: AIChatSidebarProps) => {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="fixed top-14 right-0 bottom-0 w-96 bg-card border-l border-dashboard-border z-40 flex flex-col shadow-2xl"
+          className="fixed top-0 right-0 bottom-0 w-[420px] bg-card z-50 flex flex-col shadow-2xl border-l border-dashboard-border"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-dashboard-border bg-dashboard-panel">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-dashboard-border">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-sm">APEXTRACE AI</h3>
-                <p className="text-xs text-muted-foreground">Your racing assistant</p>
-              </div>
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span className="font-semibold">AI Assistant</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 hover:bg-muted">
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            {messages.length === 0 ? (
-              <div className="space-y-4">
-                {/* Welcome message */}
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    <span className="font-semibold text-primary">Welcome to APEXTRACE AI</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    I'm your intelligent assistant for the ROS2 Telemetry Dashboard. I can help you:
-                  </p>
-                  <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                    <li className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-primary" />
-                      Navigate and use the dashboard features
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-primary" />
-                      Understand telemetry data (speed, steering, forces)
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-primary" />
-                      Upload and analyze ROS2 bag files
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-primary" />
-                      Get insights on car performance
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Suggested prompts */}
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Try asking:</p>
-                  {suggestedPrompts.map((prompt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendMessage(prompt.text)}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashboard-border bg-muted/30 hover:bg-muted/50 hover:border-primary/30 transition-all text-left group"
-                    >
-                      <prompt.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                      <span className="text-sm">{prompt.text}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                        msg.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted border border-dashboard-border"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap">{msg.content || "..."}</p>
+          {/* Messages Area */}
+          <ScrollArea className="flex-1">
+            <div className="p-6">
+              {messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center pt-16">
+                  {/* Welcome Icon */}
+                  <div className="relative mb-6">
+                    <Sparkles className="w-12 h-12 text-primary/60" />
+                    <div className="absolute -top-1 -right-1 w-3 h-3">
+                      <Sparkles className="w-3 h-3 text-primary" />
                     </div>
                   </div>
-                ))}
-                <div ref={scrollRef} />
-              </div>
-            )}
+                  
+                  {/* Welcome Text */}
+                  <p className="text-center text-muted-foreground mb-2">
+                    Start a conversation with the AI Assistant.
+                  </p>
+                  <p className="text-center text-sm text-muted-foreground/70 mb-8">
+                    Ask about telemetry, ROS2 bags, or dashboard features.
+                  </p>
+
+                  {/* Suggested Prompts */}
+                  <div className="w-full space-y-2">
+                    {suggestedPrompts.map((prompt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(prompt.text)}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg border border-dashboard-border bg-muted/20 hover:bg-muted/40 hover:border-primary/30 transition-all text-left group"
+                      >
+                        <prompt.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                        <span className="text-sm text-foreground">{prompt.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {messages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground rounded-br-md"
+                            : "bg-muted border border-dashboard-border rounded-bl-md"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap leading-relaxed">{msg.content || "..."}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={scrollRef} />
+                </div>
+              )}
+            </div>
           </ScrollArea>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="p-4 border-t border-dashboard-border bg-dashboard-panel">
-            <div className="flex gap-2">
-              <Textarea
+          {/* Input Area */}
+          <div className="p-4 border-t border-dashboard-border">
+            <form onSubmit={handleSubmit} className="flex items-center gap-2 bg-muted rounded-full px-2 py-1 border border-dashboard-border">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <Paperclip className="h-4 w-4" />
+              </Button>
+              <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about telemetry, bags, or the dashboard..."
-                className="min-h-[44px] max-h-32 resize-none bg-muted border-dashboard-border"
+                placeholder="Ask the AI..."
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground/60"
                 disabled={isLoading}
               />
               <Button
                 type="submit"
                 size="icon"
                 disabled={!input.trim() || isLoading}
-                className="h-11 w-11 bg-primary hover:bg-primary/90 shrink-0"
+                className="h-9 w-9 rounded-full bg-primary/80 hover:bg-primary shrink-0"
               >
                 <Send className="h-4 w-4" />
               </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              Press Enter to send • Shift+Enter for new line
-            </p>
-          </form>
+            </form>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
