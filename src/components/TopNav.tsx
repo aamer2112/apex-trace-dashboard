@@ -118,15 +118,14 @@ const TopNav = () => {
           )}
 
           {/* AI Chat Toggle Button */}
-          <Button
+          <button
             onClick={() => setAiChatOpen(!aiChatOpen)}
-            size="icon"
-            className={`h-8 w-8 bg-primary hover:bg-primary/90 transition-all p-1 ${
-              aiChatOpen ? "ring-2 ring-primary/50 ring-offset-2 ring-offset-background" : ""
+            className={`h-8 w-10 transition-all hover:scale-110 ${
+              aiChatOpen ? "scale-110 drop-shadow-[0_0_8px_hsl(var(--primary))]" : ""
             }`}
           >
-            <img src={carIcon} alt="AI" className="w-full h-full object-contain" />
-          </Button>
+            <img src={carIcon} alt="AI Assistant" className="w-full h-full object-contain drop-shadow-[0_0_4px_hsl(var(--primary)/0.5)]" />
+          </button>
         </div>
       </div>
 
