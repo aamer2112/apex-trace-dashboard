@@ -7,63 +7,83 @@ import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
 import { streamBagData, generateMockTelemetry, TelemetryData } from "@/lib/api";
 
-// Monza-inspired track outline points (simplified representation)
+// Accurate Monza track outline - based on the actual circuit layout
+// The track flows: Start/Finish straight → Turn 1-2 chicane → Curva Grande → 
+// Variante della Roggia (chicane) → Lesmos → Ascari chicane → Parabolica → back to start
 const trackOuterPath = `
-  M 15 50
-  L 15 25
-  Q 15 15 25 15
-  L 45 15
-  Q 55 15 60 20
-  L 75 35
-  Q 85 45 85 55
-  L 85 70
-  Q 85 80 75 85
-  L 55 85
-  Q 45 85 40 80
-  L 25 65
-  Q 15 55 15 50
+  M 50 85
+  L 85 85
+  Q 92 85 92 78
+  L 92 70
+  Q 92 65 88 62
+  L 75 55
+  Q 70 52 65 55
+  L 55 62
+  Q 50 65 45 62
+  L 35 55
+  Q 30 52 25 55
+  L 18 62
+  Q 12 68 12 75
+  L 12 82
+  Q 12 90 20 92
+  L 25 92
+  Q 28 92 30 88
+  L 32 80
+  Q 34 75 38 73
+  L 45 73
+  Q 50 73 50 78
+  L 50 85
   Z
 `;
 
 const trackInnerPath = `
-  M 25 50
-  L 25 30
-  Q 25 22 33 22
-  L 43 22
-  Q 50 22 55 27
-  L 68 40
-  Q 75 48 75 55
-  L 75 65
-  Q 75 72 68 77
-  L 53 77
-  Q 48 77 44 73
-  L 32 60
-  Q 25 53 25 50
+  M 55 80
+  L 80 80
+  Q 85 80 85 75
+  L 85 70
+  Q 85 67 82 65
+  L 72 60
+  Q 68 58 64 60
+  L 56 65
+  Q 52 67 48 65
+  L 40 60
+  Q 36 58 32 60
+  L 25 65
+  Q 20 68 20 73
+  L 20 78
+  Q 20 82 25 84
+  L 30 84
+  Q 33 84 35 81
+  L 37 77
+  Q 39 74 43 73
+  L 48 73
+  Q 52 73 54 76
+  L 55 80
   Z
 `;
 
-// Define key points along the track for car movement
+// Key track points following Monza layout for car movement
 const trackPoints = [
-  { x: 20, y: 50 }, { x: 20, y: 35 }, { x: 20, y: 25 }, { x: 28, y: 18 },
-  { x: 40, y: 18 }, { x: 52, y: 20 }, { x: 62, y: 28 }, { x: 72, y: 40 },
-  { x: 80, y: 52 }, { x: 80, y: 65 }, { x: 78, y: 75 }, { x: 70, y: 82 },
-  { x: 58, y: 82 }, { x: 48, y: 78 }, { x: 38, y: 70 }, { x: 28, y: 58 },
+  { x: 50, y: 82 }, { x: 65, y: 82 }, { x: 80, y: 82 }, { x: 88, y: 78 },
+  { x: 88, y: 68 }, { x: 80, y: 58 }, { x: 68, y: 55 }, { x: 58, y: 60 },
+  { x: 48, y: 63 }, { x: 38, y: 58 }, { x: 28, y: 58 }, { x: 18, y: 68 },
+  { x: 18, y: 80 }, { x: 28, y: 88 }, { x: 35, y: 80 }, { x: 42, y: 75 },
 ];
 
-// Optimal racing line points (the ideal path - GREEN)
+// Optimal racing line (GREEN) - ideal apex-hitting path
 const optimalLinePoints = [
-  { x: 22, y: 50 }, { x: 21, y: 38 }, { x: 22, y: 26 }, { x: 30, y: 17 },
-  { x: 42, y: 16 }, { x: 55, y: 18 }, { x: 68, y: 30 }, { x: 78, y: 45 },
-  { x: 80, y: 58 }, { x: 78, y: 72 }, { x: 68, y: 82 }, { x: 54, y: 83 },
-  { x: 42, y: 78 }, { x: 32, y: 68 }, { x: 24, y: 56 },
+  { x: 52, y: 82 }, { x: 68, y: 82 }, { x: 82, y: 80 }, { x: 87, y: 72 },
+  { x: 82, y: 60 }, { x: 70, y: 56 }, { x: 60, y: 62 }, { x: 50, y: 64 },
+  { x: 42, y: 60 }, { x: 32, y: 58 }, { x: 22, y: 65 }, { x: 18, y: 76 },
+  { x: 24, y: 86 }, { x: 32, y: 82 }, { x: 40, y: 76 }, { x: 48, y: 76 },
 ];
 
-// Actual racing line points (the path the car takes - RED)
+// Actual racing line (RED) - path the car actually takes
 const actualLinePoints = [
-  { x: 23, y: 52 }, { x: 24, y: 40 }, { x: 26, y: 28 }, { x: 34, y: 20 },
-  { x: 45, y: 19 }, { x: 58, y: 22 }, { x: 70, y: 34 }, { x: 77, y: 48 },
-  { x: 78, y: 60 }, { x: 74, y: 74 }, { x: 64, y: 80 }, { x: 50, y: 80 },
-  { x: 40, y: 74 }, { x: 30, y: 64 }, { x: 25, y: 54 },
+  { x: 54, y: 81 }, { x: 70, y: 81 }, { x: 84, y: 78 }, { x: 86, y: 70 },
+  { x: 80, y: 59 }, { x: 68, y: 57 }, { x: 58, y: 63 }, { x: 49, y: 65 },
+  { x: 40, y: 61 }, { x: 30, y: 60 }, { x: 20, y: 68 }, { x: 17, y: 78 },
+  { x: 26, y: 87 }, { x: 34, y: 80 }, { x: 42, y: 74 }, { x: 50, y: 78 },
 ];
 
 // Convert points to SVG path

@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Search, X, Sparkles } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NavLink } from "@/components/NavLink";
 import { useBag } from "@/contexts/BagContext";
 import { listBags, checkBackendHealth } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
-
+import carIcon from "@/assets/car-icon.png";
 const TopNav = () => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,11 +121,11 @@ const TopNav = () => {
           <Button
             onClick={() => setAiChatOpen(!aiChatOpen)}
             size="icon"
-            className={`h-8 w-8 bg-primary hover:bg-primary/90 transition-all ${
+            className={`h-8 w-8 bg-primary hover:bg-primary/90 transition-all p-1 ${
               aiChatOpen ? "ring-2 ring-primary/50 ring-offset-2 ring-offset-background" : ""
             }`}
           >
-            <Sparkles className="h-4 w-4" />
+            <img src={carIcon} alt="AI" className="w-full h-full object-contain" />
           </Button>
         </div>
       </div>
