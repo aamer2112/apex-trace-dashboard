@@ -35,12 +35,22 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, context } = await req.json();
+    const { messages, context, model } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    // Validate model selection
+    const allowedModels = [
+      "google/gemini-3-flash-preview",
+      "google/gemini-2.5-flash",
+      "google/gemini-2.5-pro",
+      "openai/gpt-5-mini",
+      "openai/gpt-5",
+    ];
+    const selectedModel = allowedModels.includes(model) ? model : "google/gemini-3-flash-preview";
 
     // Build context-aware system message
     let systemMessage = SYSTEM_PROMPT;
@@ -59,7 +69,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: selectedModel,
         messages: [
           { role: "system", content: systemMessage },
           ...messages,
