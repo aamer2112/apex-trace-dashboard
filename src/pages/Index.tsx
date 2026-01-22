@@ -12,7 +12,13 @@ import tufastLogo from "@/assets/tufast-logo.png";
 const Index = () => {
   const [showDashboard, setShowDashboard] = useState(false);
   const { selectedBagId, bags } = useBag();
-  const currentBag = bags.find(bag => bag.id === selectedBagId) || bags[0];
+  const currentBag = bags.find(bag => bag.id === selectedBagId) || bags[0] || {
+    id: "",
+    name: "No bag selected",
+    timestamp: "",
+    topics: 0,
+    duration: "00:00"
+  };
 
   if (!showDashboard) {
     return (
