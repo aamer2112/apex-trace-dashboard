@@ -16,11 +16,12 @@ const TopNav = () => {
   const { bags, setSelectedBagId } = useBag();
 
   const navItems = [
-    { label: "Bags", path: "/" },
+    { label: "Summary", path: "/" },
+    { label: "Dashboard", path: "/dashboard" },
+    { label: "Bag Details", path: "/bag-summary" },
     { label: "Simulation", path: "/simulation" },
     { label: "Queue", path: "/queue" },
-    { label: "Admin", path: "/admin" },
-    { label: "Summary", path: "/summary" }
+    { label: "Admin", path: "/admin" }
   ];
 
   // Check backend connection on mount

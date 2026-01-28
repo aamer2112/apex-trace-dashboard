@@ -9,6 +9,7 @@ import Simulation from "./pages/Simulation";
 import Queue from "./pages/Queue";
 import Admin from "./pages/Admin";
 import Summary from "./pages/Summary";
+import BagSummary from "./pages/BagSummary";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,7 +22,10 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            {/* Summary is the homepage */}
+            <Route path="/" element={<Summary />} />
+            <Route path="/dashboard" element={<Index />} />
+            <Route path="/bag-summary" element={<BagSummary />} />
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/queue" element={<Queue />} />
             <Route path="/admin" element={<Admin />} />

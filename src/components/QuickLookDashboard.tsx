@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { Activity, Gauge, Zap, TrendingUp, Loader2 } from "lucide-react";
+import { Activity, Gauge, Car, TrendingUp, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useBag } from "@/contexts/BagContext";
 import { useTelemetry } from "@/hooks/useTelemetry";
 import TelemetryChart from "./TelemetryChart";
+import TelemetryTopicSelector from "./TelemetryTopicSelector";
 
 interface KPICardProps {
   title: string;
@@ -48,21 +48,29 @@ const QuickLookDashboard = () => {
   const [zoomRange, setZoomRange] = useState({ start: 0, end: 100 });
   const { telemetry, isLoading } = useTelemetry();
 
-  // Compute KPIs from real telemetry data
+  // Compute KPIs from real telemetry data - removed Energy, replaced with driven distance
   const kpis = useMemo(() => {
     if (!telemetry || telemetry.timestamps.length === 0) {
       return {
         duration: "00:00",
         avgSpeed: 0,
-        maxSteering: 0,
-        totalEnergy: 0
+        maxSpeed: 0,
+        drivenDistance: 0
       };
     }
 
     const duration = telemetry.timestamps[telemetry.timestamps.length - 1];
     const avgSpeed = telemetry.speed.reduce((a, b) => a + b, 0) / telemetry.speed.length;
-    const maxSteering = Math.max(...telemetry.steering.map(Math.abs));
-    const totalEnergy = telemetry.force.reduce((a, b) => a + Math.abs(b), 0) / 1000; // Simplified
+    const maxSpeed = Math.max(...telemetry.speed);
+    
+    // Calculate driven distance (only when speed > 0.5 m/s)
+    let drivenDistance = 0;
+    for (let i = 1; i < telemetry.timestamps.length; i++) {
+      if (telemetry.speed[i] > 0.5) {
+        const dt = telemetry.timestamps[i] - telemetry.timestamps[i - 1];
+        drivenDistance += telemetry.speed[i] * dt;
+      }
+    }
 
     const minutes = Math.floor(duration / 60);
     const seconds = Math.floor(duration % 60);
@@ -70,30 +78,14 @@ const QuickLookDashboard = () => {
     return {
       duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
       avgSpeed: avgSpeed.toFixed(1),
-      maxSteering: maxSteering.toFixed(1),
-      totalEnergy: (totalEnergy / 100).toFixed(1)
+      maxSpeed: maxSpeed.toFixed(1),
+      drivenDistance: (drivenDistance / 1000).toFixed(2) // Convert to km
     };
   }, [telemetry]);
 
-  const toggleTopic = (topic: string) => {
-    setSelectedTopics(
-      selectedTopics.includes(topic)
-        ? selectedTopics.filter(t => t !== topic)
-        : [...selectedTopics, topic]
-    );
-  };
-
-  const topics = [
-    { id: "steering", label: "Steering" },
-    { id: "speed", label: "Speed" },
-    { id: "force", label: "Force" },
-    { id: "brake", label: "Brake" },
-    { id: "yaw_moment", label: "Yaw Moment" }
-  ];
-
   return (
     <div className="space-y-6">
-      {/* KPI Grid */}
+      {/* KPI Grid - Removed Energy and Max Steering */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Duration"
@@ -111,18 +103,17 @@ const QuickLookDashboard = () => {
           isLoading={isLoading}
         />
         <KPICard
-          title="Max Steering"
-          value={String(kpis.maxSteering)}
-          unit="deg"
+          title="Max Speed"
+          value={String(kpis.maxSpeed)}
+          unit="m/s"
           icon={<TrendingUp className="h-5 w-5" />}
           isLoading={isLoading}
         />
         <KPICard
-          title="Total Energy"
-          value={String(kpis.totalEnergy)}
-          unit="kWh"
-          icon={<Zap className="h-5 w-5" />}
-          trend="-2.1%"
+          title="Driven Distance"
+          value={String(kpis.drivenDistance)}
+          unit="km"
+          icon={<Car className="h-5 w-5" />}
           isLoading={isLoading}
         />
       </div>
@@ -133,19 +124,14 @@ const QuickLookDashboard = () => {
           <h3 className="text-sm font-semibold uppercase tracking-wider">
             Synchronized Telemetry
           </h3>
-          <div className="flex gap-2 text-xs flex-wrap">
-            {topics.map((topic) => (
-              <Button
-                key={topic.id}
-                variant={selectedTopics.includes(topic.id) ? "default" : "ghost"}
-                size="sm"
-                onClick={() => toggleTopic(topic.id)}
-                className="h-7"
-              >
-                {topic.label}
-              </Button>
-            ))}
-          </div>
+        </div>
+
+        {/* Multi-select topic dropdown */}
+        <div className="mb-4">
+          <TelemetryTopicSelector
+            selectedTopics={selectedTopics}
+            onTopicsChange={setSelectedTopics}
+          />
         </div>
 
         {/* Interactive Telemetry Chart */}
