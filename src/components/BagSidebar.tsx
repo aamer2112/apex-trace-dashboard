@@ -1,69 +1,109 @@
-import { useState, useRef } from "react";
-import { Upload, Database, Clock, Hash, Info, HelpCircle, Trash2, Loader2, Wifi, WifiOff } from "lucide-react";
+import { useState, useRef, useMemo } from "react";
+import { Upload, Database, Clock, Info, HelpCircle, Trash2, Loader2, Wifi, WifiOff, Car, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { useBag } from "@/contexts/BagContext";
 import { useBackendBags } from "@/hooks/useBackendBags";
 import AboutModal from "./AboutModal";
 import HelpModal from "./HelpModal";
+import BagFilters from "./BagFilters";
+import BagUploadModal from "./BagUploadModal";
 import { toast } from "sonner";
 
 const BagSidebar = () => {
   const { selectedBagId, setSelectedBagId, bags, deleteBag, addBag } = useBag();
-  const { backendBags, isConnected, upload, remove, isLoading: backendLoading, refresh } = useBackendBags();
+  const { isConnected, upload, remove } = useBackendBags();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [missionFilter, setMissionFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
+
+  // Filter bags based on search, mission, and date
+  const filteredBags = useMemo(() => {
+    return bags.filter((bag) => {
+      // Search filter
+      if (searchQuery && !bag.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      // Mission filter
+      if (missionFilter !== "all" && bag.missionType !== missionFilter) {
+        return false;
+      }
+      // Date filter (simplified - in real app would parse bag.timestamp)
+      // For now, we skip date filtering on demo data
+      return true;
+    });
+  }, [bags, searchQuery, missionFilter, dateRange]);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    setPendingFile(file);
+    setUploadModalOpen(true);
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
+  const handleUploadConfirm = async (metadata: { missionType: string; location: string }) => {
+    if (!pendingFile) return;
+    
     setUploading(true);
     
+    const newBag = {
+      id: `${isConnected ? 'backend' : 'local'}-${Date.now()}`,
+      name: pendingFile.name,
+      timestamp: new Date().toLocaleString("en-US", { 
+        month: "short", 
+        day: "numeric", 
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      topics: 5,
+      duration: "00:00",
+      isDemo: false,
+      missionType: metadata.missionType,
+      location: metadata.location,
+      uploadDate: new Date(),
+      drivenDistance: 0, // Will be calculated from telemetry
+    };
+
     if (isConnected) {
-      // Upload to backend
-      const success = await upload(file);
+      const success = await upload(pendingFile);
       if (success) {
-        // Add to local context as well
-        const newBag = {
-          id: `backend-${Date.now()}`,
-          name: file.name,
-          timestamp: new Date().toLocaleString(),
-          topics: 5,
-          duration: "00:00",
-          isDemo: false
-        };
         addBag(newBag);
         setSelectedBagId(newBag.id);
-        toast.success(`Uploaded ${file.name}`);
+        toast.success(`Uploaded ${pendingFile.name}`);
       } else {
         toast.error("Failed to upload bag to backend");
       }
     } else {
-      // Local-only mode
-      const newBag = {
-        id: `local-${Date.now()}`,
-        name: file.name,
-        timestamp: new Date().toLocaleString(),
-        topics: 5,
-        duration: "00:00",
-        isDemo: false
-      };
       addBag(newBag);
       setSelectedBagId(newBag.id);
-      toast.success(`Added ${file.name} (offline mode)`);
+      toast.success(`Added ${pendingFile.name} (offline mode)`);
     }
     
     setUploading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    setUploadModalOpen(false);
+    setPendingFile(null);
   };
 
   const handleDelete = async (e: React.MouseEvent, bagId: string, bagName: string) => {
@@ -75,7 +115,6 @@ const BagSidebar = () => {
         deleteBag(bagId);
         toast.success("Bag deleted from server");
       } else {
-        // Still delete locally
         deleteBag(bagId);
         toast.info("Bag removed locally");
       }
@@ -96,7 +135,7 @@ const BagSidebar = () => {
       />
       
       <aside className="fixed left-0 top-14 bottom-0 w-80 bg-card border-r border-dashboard-border flex flex-col">
-        <div className="p-4 border-b border-dashboard-border">
+        <div className="p-4 border-b border-dashboard-border space-y-3">
           <Button onClick={handleUploadClick} className="w-full glow-orange" disabled={uploading}>
             {uploading ? (
               <>
@@ -112,7 +151,7 @@ const BagSidebar = () => {
           </Button>
           
           {/* Connection status */}
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-xs">
               {isConnected ? (
                 <>
@@ -127,20 +166,30 @@ const BagSidebar = () => {
               )}
             </div>
           </div>
+
+          {/* Filters */}
+          <BagFilters
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            missionFilter={missionFilter}
+            onMissionFilterChange={setMissionFilter}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+          />
         </div>
 
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Uploaded Bags
+              Uploaded Bags ({filteredBags.length})
             </h3>
             
-            {bags.length === 0 ? (
+            {filteredBags.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                No bags uploaded yet
+                {bags.length === 0 ? "No bags uploaded yet" : "No bags match filters"}
               </p>
             ) : (
-              bags.map((bag) => (
+              filteredBags.map((bag) => (
                 <div
                   key={bag.id}
                   onClick={() => setSelectedBagId(bag.id)}
@@ -167,14 +216,27 @@ const BagSidebar = () => {
                     </Button>
                   </div>
                   
+                  {/* Mission type badge */}
+                  {bag.missionType && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Flag className="h-3 w-3 text-muted-foreground" />
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                        {bag.missionType}
+                      </Badge>
+                    </div>
+                  )}
+                  
+                  {/* Stats - Show driven distance instead of duration/topics */}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Car className="h-3 w-3" />
+                      <span className="font-telemetry">
+                        {bag.drivenDistance?.toFixed(2) || "0.00"} km
+                      </span>
+                    </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       <span>{bag.duration}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Hash className="h-3 w-3" />
-                      <span>{bag.topics} topics</span>
                     </div>
                   </div>
                   
@@ -233,6 +295,13 @@ const BagSidebar = () => {
 
       <AboutModal open={aboutOpen} onOpenChange={setAboutOpen} />
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
+      <BagUploadModal
+        open={uploadModalOpen}
+        onOpenChange={setUploadModalOpen}
+        file={pendingFile}
+        onConfirm={handleUploadConfirm}
+        isUploading={uploading}
+      />
     </>
   );
 };

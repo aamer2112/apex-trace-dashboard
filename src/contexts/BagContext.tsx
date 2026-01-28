@@ -7,6 +7,10 @@ export interface BagData {
   topics: number;
   duration: string;
   isDemo?: boolean;
+  missionType?: string;
+  location?: string;
+  uploadDate?: Date;
+  drivenDistance?: number; // km, only counts when velocity > 0.5
 }
 
 interface BagContextType {
@@ -24,9 +28,9 @@ interface BagContextType {
 }
 
 const defaultBags: BagData[] = [
-  { id: "1", name: "skidpad_run_001.db3", timestamp: "Nov 22, 2025 at 14:30", topics: 47, duration: "10:52", isDemo: true },
-  { id: "2", name: "autocross_lap_003.db3", timestamp: "Nov 22, 2025 at 11:15", topics: 52, duration: "08:15", isDemo: true },
-  { id: "3", name: "endurance_test_045.db3", timestamp: "Nov 21, 2025 at 16:42", topics: 51, duration: "22:08", isDemo: true }
+  { id: "1", name: "skidpad_run_001.db3", timestamp: "Nov 22, 2025 at 14:30", topics: 47, duration: "10:52", isDemo: true, missionType: "skidpad", location: "Hockenheimring", drivenDistance: 2.34 },
+  { id: "2", name: "autocross_lap_003.db3", timestamp: "Nov 22, 2025 at 11:15", topics: 52, duration: "08:15", isDemo: true, missionType: "autocross", location: "Munich Test Track", drivenDistance: 1.87 },
+  { id: "3", name: "endurance_test_045.db3", timestamp: "Nov 21, 2025 at 16:42", topics: 51, duration: "22:08", isDemo: true, missionType: "endurance", location: "Hockenheimring", drivenDistance: 4.56 }
 ];
 
 const BagContext = createContext<BagContextType | undefined>(undefined);
