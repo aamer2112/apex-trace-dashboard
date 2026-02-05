@@ -1,10 +1,11 @@
 import { useState, useRef, useMemo } from "react";
-import { Upload, Database, Clock, Info, HelpCircle, Trash2, Loader2, Wifi, WifiOff, Car, Flag } from "lucide-react";
+import { Upload, Database, Clock, Info, HelpCircle, Trash2, Loader2, Wifi, WifiOff, Car, Flag, ChevronDown, ChevronRight, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useBag } from "@/contexts/BagContext";
+import { useBag, getLapsForBag } from "@/contexts/BagContext";
 import { useBackendBags } from "@/hooks/useBackendBags";
+import { useNavigate } from "react-router-dom";
 import AboutModal from "./AboutModal";
 import HelpModal from "./HelpModal";
 import BagFilters from "./BagFilters";
@@ -14,11 +15,13 @@ import { toast } from "sonner";
 const BagSidebar = () => {
   const { selectedBagId, setSelectedBagId, bags, deleteBag, addBag } = useBag();
   const { isConnected, upload, remove } = useBackendBags();
+  const navigate = useNavigate();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [expandedBagId, setExpandedBagId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter states
@@ -189,81 +192,119 @@ const BagSidebar = () => {
                 {bags.length === 0 ? "No bags uploaded yet" : "No bags match filters"}
               </p>
             ) : (
-              filteredBags.map((bag) => (
-                <div
-                  key={bag.id}
-                  onClick={() => setSelectedBagId(bag.id)}
-                  className={`p-3 rounded-lg border cursor-pointer transition-all group ${
-                    selectedBagId === bag.id
-                      ? "bg-primary/10 border-primary/50"
-                      : "bg-background border-dashboard-border hover:border-primary/30"
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Database className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-medium truncate max-w-[180px]">
-                        {bag.name}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleDelete(e, bag.id, bag.name)}
+              filteredBags.map((bag) => {
+                const laps = getLapsForBag(bag);
+                const isExpanded = expandedBagId === bag.id;
+                
+                return (
+                  <div key={bag.id} className="space-y-1">
+                    <div
+                      onClick={() => setSelectedBagId(bag.id)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all group ${
+                        selectedBagId === bag.id
+                          ? "bg-primary/10 border-primary/50"
+                          : "bg-background border-dashboard-border hover:border-primary/30"
+                      }`}
                     >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                  
-                  {/* Mission type badge */}
-                  {bag.missionType && (
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <Flag className="h-3 w-3 text-muted-foreground" />
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
-                        {bag.missionType}
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  {/* Stats - Show driven distance instead of duration/topics */}
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Car className="h-3 w-3" />
-                      <span className="font-telemetry">
-                        {bag.drivenDistance?.toFixed(2) || "0.00"} km
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>{bag.duration}</span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {bag.timestamp}
-                  </p>
-                  
-                  {bag.isDemo && (
-                    <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                      Demo
-                    </span>
-                  )}
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Database className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium truncate max-w-[180px]">
+                            {bag.name}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => handleDelete(e, bag.id, bag.name)}
+                        >
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                      
+                      {/* Mission type badge */}
+                      {bag.missionType && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Flag className="h-3 w-3 text-muted-foreground" />
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                            {bag.missionType}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {/* Stats - Show driven distance instead of duration/topics */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Car className="h-3 w-3" />
+                          <span className="font-telemetry">
+                            {bag.drivenDistance?.toFixed(2) || "0.00"} km
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{bag.duration}</span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {bag.timestamp}
+                      </p>
+                      
+                      {bag.isDemo && (
+                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                          Demo
+                        </span>
+                      )}
 
-                  {/* Mini sparkline placeholder */}
-                  <div className="mt-3 h-8 bg-dashboard-grid rounded overflow-hidden">
-                    <svg className="w-full h-full" viewBox="0 0 200 32" preserveAspectRatio="none">
-                      <path
-                        d="M 0,16 Q 25,8 50,16 T 100,16 Q 125,24 150,16 T 200,16"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth="1.5"
-                        fill="none"
-                        opacity="0.6"
-                      />
-                    </svg>
+                      {/* Lap dropdown toggle */}
+                      {laps.length > 0 && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedBagId(isExpanded ? null : bag.id);
+                          }}
+                          className="mt-3 flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors w-full"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-3 w-3" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3" />
+                          )}
+                          <span>{laps.length} Lap{laps.length > 1 ? "s" : ""}</span>
+                          <Shield className="h-3 w-3 ml-auto" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Lap list dropdown */}
+                    {isExpanded && laps.length > 0 && (
+                      <div className="ml-4 pl-3 border-l-2 border-primary/30 space-y-1">
+                        {laps.map((lap) => (
+                          <button
+                            key={lap}
+                            onClick={() => {
+                              setSelectedBagId(bag.id);
+                              navigate(`/lap-confidence?lap=${lap}`);
+                            }}
+                            className="w-full p-2 text-left text-xs rounded bg-muted/30 hover:bg-primary/10 transition-colors flex items-center justify-between group"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="font-telemetry">Lap {lap}</span>
+                              {bag.missionType === "skidpad" && (lap === "3" || lap === "5") && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0">
+                                  Key
+                                </Badge>
+                              )}
+                            </span>
+                            <Shield className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </ScrollArea>
