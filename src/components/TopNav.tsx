@@ -19,6 +19,7 @@ const TopNav = () => {
     { label: "Summary", path: "/" },
     { label: "Dashboard", path: "/dashboard" },
     { label: "Bag Details", path: "/bag-summary" },
+    { label: "Lap Confidence", path: "/lap-confidence" },
     { label: "Simulation", path: "/simulation" },
     { label: "Queue", path: "/queue" },
     { label: "Admin", path: "/admin" }

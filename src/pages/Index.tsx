@@ -10,7 +10,7 @@ import { useBag } from "@/contexts/BagContext";
 import tufastLogo from "@/assets/tufast-logo.png";
 
 const Index = () => {
-  const [showDashboard, setShowDashboard] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(true);
   const { selectedBagId, bags } = useBag();
   const currentBag = bags.find(bag => bag.id === selectedBagId) || bags[0] || {
     id: "",
