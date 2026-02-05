@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Shield, AlertTriangle, CheckCircle, XCircle, TrendingUp, Gauge, Activity, Zap, Target } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,9 +38,23 @@ interface ComponentScores {
 const LapConfidence = () => {
   const { bags, selectedBagId } = useBag();
   const { telemetry } = useTelemetry();
-  const [selectedLap, setSelectedLap] = useState("1");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedLap, setSelectedLap] = useState(() => searchParams.get("lap") || "1");
 
   const currentBag = bags.find(b => b.id === selectedBagId);
+
+  // Sync URL param with selected lap
+  useEffect(() => {
+    const lapFromUrl = searchParams.get("lap");
+    if (lapFromUrl && lapFromUrl !== selectedLap) {
+      setSelectedLap(lapFromUrl);
+    }
+  }, [searchParams]);
+
+  const handleLapChange = (lap: string) => {
+    setSelectedLap(lap);
+    setSearchParams({ lap });
+  };
 
   // Generate demo laps based on mission type
   const availableLaps = useMemo(() => {
@@ -302,7 +317,7 @@ const LapConfidence = () => {
               
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground uppercase">Lap</span>
-                <Select value={selectedLap} onValueChange={setSelectedLap}>
+                <Select value={selectedLap} onValueChange={handleLapChange}>
                   <SelectTrigger className="w-24">
                     <SelectValue />
                   </SelectTrigger>
