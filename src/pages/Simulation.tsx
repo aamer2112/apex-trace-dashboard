@@ -198,8 +198,9 @@ const Simulation = () => {
   };
 
   // Car sprite size in viewBox units
-  const CAR_W = 4;
-  const CAR_H = 6;
+  // Car sticker size in viewBox units (sticker has its own border + background)
+  const CAR_W = 7;
+  const CAR_H = 10;
 
   return (
     <div className="min-h-screen bg-background">
