@@ -1,103 +1,35 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Play, Pause, RotateCcw, ZoomIn, ZoomOut, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBag } from "@/contexts/BagContext";
 import TopNav from "@/components/TopNav";
 import BagSidebar from "@/components/BagSidebar";
 import { streamBagData, generateMockTelemetry, TelemetryData } from "@/lib/api";
-
-// Accurate Monza track outline - based on the actual circuit layout
-// The track flows: Start/Finish straight → Turn 1-2 chicane → Curva Grande → 
-// Variante della Roggia (chicane) → Lesmos → Ascari chicane → Parabolica → back to start
-const trackOuterPath = `
-  M 50 85
-  L 85 85
-  Q 92 85 92 78
-  L 92 70
-  Q 92 65 88 62
-  L 75 55
-  Q 70 52 65 55
-  L 55 62
-  Q 50 65 45 62
-  L 35 55
-  Q 30 52 25 55
-  L 18 62
-  Q 12 68 12 75
-  L 12 82
-  Q 12 90 20 92
-  L 25 92
-  Q 28 92 30 88
-  L 32 80
-  Q 34 75 38 73
-  L 45 73
-  Q 50 73 50 78
-  L 50 85
-  Z
-`;
-
-const trackInnerPath = `
-  M 55 80
-  L 80 80
-  Q 85 80 85 75
-  L 85 70
-  Q 85 67 82 65
-  L 72 60
-  Q 68 58 64 60
-  L 56 65
-  Q 52 67 48 65
-  L 40 60
-  Q 36 58 32 60
-  L 25 65
-  Q 20 68 20 73
-  L 20 78
-  Q 20 82 25 84
-  L 30 84
-  Q 33 84 35 81
-  L 37 77
-  Q 39 74 43 73
-  L 48 73
-  Q 52 73 54 76
-  L 55 80
-  Z
-`;
-
-// Key track points following Monza layout for car movement
-const trackPoints = [
-  { x: 50, y: 82 }, { x: 65, y: 82 }, { x: 80, y: 82 }, { x: 88, y: 78 },
-  { x: 88, y: 68 }, { x: 80, y: 58 }, { x: 68, y: 55 }, { x: 58, y: 60 },
-  { x: 48, y: 63 }, { x: 38, y: 58 }, { x: 28, y: 58 }, { x: 18, y: 68 },
-  { x: 18, y: 80 }, { x: 28, y: 88 }, { x: 35, y: 80 }, { x: 42, y: 75 },
-];
-
-// Optimal racing line (GREEN) - ideal apex-hitting path
-const optimalLinePoints = [
-  { x: 52, y: 82 }, { x: 68, y: 82 }, { x: 82, y: 80 }, { x: 87, y: 72 },
-  { x: 82, y: 60 }, { x: 70, y: 56 }, { x: 60, y: 62 }, { x: 50, y: 64 },
-  { x: 42, y: 60 }, { x: 32, y: 58 }, { x: 22, y: 65 }, { x: 18, y: 76 },
-  { x: 24, y: 86 }, { x: 32, y: 82 }, { x: 40, y: 76 }, { x: 48, y: 76 },
-];
-
-// Actual racing line (RED) - path the car actually takes
-const actualLinePoints = [
-  { x: 54, y: 81 }, { x: 70, y: 81 }, { x: 84, y: 78 }, { x: 86, y: 70 },
-  { x: 80, y: 59 }, { x: 68, y: 57 }, { x: 58, y: 63 }, { x: 49, y: 65 },
-  { x: 40, y: 61 }, { x: 30, y: 60 }, { x: 20, y: 68 }, { x: 17, y: 78 },
-  { x: 26, y: 87 }, { x: 34, y: 80 }, { x: 42, y: 74 }, { x: 50, y: 78 },
-];
+import {
+  TRACK_PRESETS,
+  CUSTOM_TRACK_ID,
+  TrackPoint,
+  pointsToPath,
+  bandPath,
+  centerFromBoundaries,
+} from "@/lib/trackPresets";
+import CustomTrackEditor from "@/components/CustomTrackEditor";
+import carSprite from "@/assets/car-topdown.png";
 
 // Convert points to SVG path
-const pointsToPath = (points: { x: number; y: number }[]): string => {
-  if (points.length === 0) return "";
-  return points.reduce((path, point, i) => {
-    if (i === 0) return `M ${point.x} ${point.y}`;
-    return `${path} L ${point.x} ${point.y}`;
-  }, "");
-};
+const linePath = (points: TrackPoint[]): string => pointsToPath(points);
 
 const Simulation = () => {
   const { selectedBagId, bags } = useBag();
-  const currentBag = bags.find(bag => bag.id === selectedBagId) || bags[0];
+  const currentBag = bags.find((bag) => bag.id === selectedBagId) || bags[0];
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
@@ -107,17 +39,20 @@ const Simulation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const animationRef = useRef<number>();
 
+  // Track preset selection
+  const [trackId, setTrackId] = useState<string>(TRACK_PRESETS[0].id);
+  const [editorOpen, setEditorOpen] = useState(false);
+  // Custom track is isolated state — never written back to bag data
+  const [customLeft, setCustomLeft] = useState<TrackPoint[]>([]);
+  const [customRight, setCustomRight] = useState<TrackPoint[]>([]);
+
   // Fetch telemetry data when bag changes
   const fetchTelemetryData = useCallback(async () => {
     if (!currentBag) return;
     setIsLoading(true);
-    
     const data = await streamBagData(currentBag.name);
-    if (data) {
-      setTelemetryData(data);
-    } else {
-      setTelemetryData(generateMockTelemetry(currentBag.name, 500));
-    }
+    if (data) setTelemetryData(data);
+    else setTelemetryData(generateMockTelemetry(currentBag.name, 500));
     setIsLoading(false);
     setCurrentDataIndex(0);
     setCurrentTime(0);
@@ -127,13 +62,13 @@ const Simulation = () => {
     fetchTelemetryData();
   }, [fetchTelemetryData]);
 
-  const maxTime = telemetryData?.timestamps?.length 
-    ? telemetryData.timestamps[telemetryData.timestamps.length - 1] 
+  const maxTime = telemetryData?.timestamps?.length
+    ? telemetryData.timestamps[telemetryData.timestamps.length - 1]
     : 652;
 
   const [carProgress, setCarProgress] = useState(0);
 
-  // Get current telemetry values
+  // Current telemetry values (drives car dynamics regardless of track choice)
   const idx = Math.min(currentDataIndex, (telemetryData?.steering?.length || 1) - 1);
   const steeringAngle = telemetryData?.steering?.[idx] ?? 0;
   const speed = telemetryData?.speed?.[idx] ?? 42;
@@ -142,51 +77,62 @@ const Simulation = () => {
   const gForceX = Math.cos(currentTime * 0.5) * (speed / 40);
   const gForceY = Math.sin(currentTime * 0.3) * (speed / 60);
 
-  // Calculate car position on track following actual line
+  // Resolve current track geometry. Custom is isolated — does not modify bag data.
+  const isCustom = trackId === CUSTOM_TRACK_ID;
+  const preset = TRACK_PRESETS.find((p) => p.id === trackId);
+
+  const customCenter = useMemo(
+    () => centerFromBoundaries(customLeft, customRight),
+    [customLeft, customRight]
+  );
+  const hasCustom = customLeft.length > 1 && customRight.length > 1;
+
+  // Centerline that the car follows
+  const centerPoints: TrackPoint[] =
+    isCustom && hasCustom ? customCenter : preset?.centerPoints ?? [];
+
+  // Car position from progress along centerline
   const getCarPosition = (progress: number) => {
-    const totalPoints = actualLinePoints.length;
+    if (centerPoints.length < 2) return { x: 50, y: 50, rotation: 0 };
+    const totalPoints = centerPoints.length;
     const exactIndex = progress * (totalPoints - 1);
     const index = Math.floor(exactIndex);
     const nextIndex = Math.min(index + 1, totalPoints - 1);
     const t = exactIndex - index;
-    
-    const current = actualLinePoints[index];
-    const next = actualLinePoints[nextIndex];
-    
+    const current = centerPoints[index];
+    const next = centerPoints[nextIndex];
     const x = current.x + (next.x - current.x) * t;
     const y = current.y + (next.y - current.y) * t;
-    
-    // Calculate rotation based on direction
     const dx = next.x - current.x;
     const dy = next.y - current.y;
-    const rotation = Math.atan2(dy, dx) * (180 / Math.PI);
-    
+    // Sprite is oriented "nose up" → rotate so up aligns with travel direction.
+    const rotation = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
     return { x, y, rotation };
   };
 
   const carPosition = getCarPosition(carProgress);
 
-  // Get visible portion of racing lines based on car progress
-  const getVisibleLinePath = (points: { x: number; y: number }[], progress: number) => {
+  const getVisibleLinePath = (points: TrackPoint[], progress: number) => {
     const visibleCount = Math.max(2, Math.ceil(progress * points.length) + 3);
-    const visiblePoints = points.slice(0, Math.min(visibleCount, points.length));
-    return pointsToPath(visiblePoints);
+    return linePath(points.slice(0, Math.min(visibleCount, points.length)));
   };
 
   useEffect(() => {
     if (isPlaying && telemetryData) {
       const totalPoints = telemetryData.timestamps?.length || 500;
       const animate = () => {
-        setCurrentDataIndex(prev => {
+        setCurrentDataIndex((prev) => {
           const next = prev + Math.ceil(playbackSpeed);
           return next >= totalPoints ? 0 : next;
         });
-        setCurrentTime(prev => {
-          const next = prev + (0.02 * playbackSpeed);
+        setCurrentTime((prev) => {
+          const next = prev + 0.02 * playbackSpeed;
           return next >= maxTime ? 0 : next;
         });
-        setCarProgress(prev => {
-          const next = prev + (0.002 * playbackSpeed);
+        // Speed-driven progress: faster bag speed → faster car movement on track
+        setCarProgress((prev) => {
+          const speedFactor = Math.max(0.2, speed / 40);
+          const next = prev + 0.0015 * playbackSpeed * speedFactor;
           return next >= 1 ? 0 : next;
         });
         animationRef.current = requestAnimationFrame(animate);
@@ -194,11 +140,9 @@ const Simulation = () => {
       animationRef.current = requestAnimationFrame(animate);
     }
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isPlaying, playbackSpeed, maxTime, telemetryData]);
+  }, [isPlaying, playbackSpeed, maxTime, telemetryData, speed]);
 
   const handleReset = () => {
     setCurrentTime(0);
@@ -218,147 +162,178 @@ const Simulation = () => {
     }
   };
 
+  const handleTrackChange = (value: string) => {
+    if (value === CUSTOM_TRACK_ID) {
+      setTrackId(CUSTOM_TRACK_ID);
+      // Open editor automatically the first time if no custom track exists
+      if (!hasCustom) setEditorOpen(true);
+    } else {
+      setTrackId(value);
+    }
+    setCarProgress(0);
+  };
+
+  // Car sprite size in viewBox units
+  const CAR_W = 4;
+  const CAR_H = 6;
+
   return (
     <div className="min-h-screen bg-background">
       <TopNav />
       <BagSidebar />
-      
+
+      <CustomTrackEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        initialLeft={customLeft}
+        initialRight={customRight}
+        bagTrack={telemetryData?.track}
+        onSave={(l, r) => {
+          setCustomLeft(l);
+          setCustomRight(r);
+          setEditorOpen(false);
+          setTrackId(CUSTOM_TRACK_ID);
+          setCarProgress(0);
+        }}
+      />
+
       <main className="ml-80 mt-14 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-2">2D Track Simulation</h2>
-            <p className="text-sm text-muted-foreground">
-              {currentBag?.name || `Bag #${selectedBagId}`} • Monza-style circuit with racing line comparison
-            </p>
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold mb-2">2D Track Simulation</h2>
+              <p className="text-sm text-muted-foreground">
+                {currentBag?.name || `Bag #${selectedBagId}`} •{" "}
+                {isCustom ? "Custom drawn track" : preset?.name} • Telemetry-driven dynamics
+              </p>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground uppercase tracking-wider">Track</label>
+                <Select value={trackId} onValueChange={handleTrackChange}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Select track" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TRACK_PRESETS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={CUSTOM_TRACK_ID}>Custom Track / Editor</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditorOpen(true)}
+                className="gap-2"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                {hasCustom ? "Edit Custom Track" : "Open Editor"}
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* 2D Track Visualization */}
             <Card className="lg:col-span-2 p-6 bg-card border-dashboard-border">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold uppercase tracking-wider">
-                  Track View
-                </h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Track View</h3>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
                     <ZoomOut className="h-4 w-4" />
                   </Button>
                   <span className="text-xs text-muted-foreground w-12 text-center">{(zoom * 100).toFixed(0)}%</span>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(2, z + 0.25))}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(2, z + 0.25))}>
                     <ZoomIn className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              
-              <div className="relative bg-dashboard-grid rounded-lg border border-dashboard-border overflow-hidden" style={{ height: '400px' }}>
-                <svg 
-                  width="100%" 
-                  height="100%" 
-                  viewBox="0 0 100 100" 
+
+              <div className="relative bg-dashboard-grid rounded-lg border border-dashboard-border overflow-hidden" style={{ height: "400px" }}>
+                <svg
+                  width="100%"
+                  height="100%"
+                  viewBox="0 0 100 100"
                   preserveAspectRatio="xMidYMid meet"
-                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
+                  style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
                 >
-                  {/* Track surface (outer) */}
-                  <path 
-                    d={trackOuterPath}
-                    fill="hsl(var(--muted))"
-                    opacity="0.4"
-                  />
-                  
-                  {/* Track inner cutout */}
-                  <path 
-                    d={trackInnerPath}
-                    fill="hsl(var(--background))"
-                  />
-                  
-                  {/* Track borders */}
-                  <path 
-                    d={trackOuterPath}
-                    fill="none"
-                    stroke="hsl(var(--foreground))"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                  <path 
-                    d={trackInnerPath}
-                    fill="none"
-                    stroke="hsl(var(--foreground))"
-                    strokeWidth="0.8"
-                    opacity="0.6"
-                  />
-                  
-                  {/* Optimal racing line (GREEN) - full path faded */}
-                  <path 
-                    d={pointsToPath(optimalLinePoints) + " Z"}
-                    fill="none"
-                    stroke="hsl(142, 76%, 36%)"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.3"
-                  />
-                  
-                  {/* Optimal racing line trail (GREEN) - visible portion */}
-                  <path 
-                    d={getVisibleLinePath(optimalLinePoints, carProgress)}
-                    fill="none"
-                    stroke="hsl(142, 76%, 36%)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="drop-shadow-[0_0_4px_hsl(142,76%,36%)]"
-                  />
-                  
-                  {/* Actual racing line (RED) - full path faded */}
-                  <path 
-                    d={pointsToPath(actualLinePoints) + " Z"}
-                    fill="none"
-                    stroke="hsl(0, 84%, 50%)"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    opacity="0.3"
-                  />
-                  
-                  {/* Actual racing line trail (RED) - visible portion behind car */}
-                  <path 
-                    d={getVisibleLinePath(actualLinePoints, carProgress)}
-                    fill="none"
-                    stroke="hsl(0, 84%, 50%)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="drop-shadow-[0_0_4px_hsl(0,84%,50%)]"
-                  />
-                  
-                  {/* Start/Finish line */}
-                  <line x1="18" y1="48" x2="26" y2="48" stroke="hsl(var(--foreground))" strokeWidth="1" />
-                  <text x="22" y="46" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="2.5">S/F</text>
-                  
-                  {/* Car */}
-                  <g transform={`translate(${carPosition.x}, ${carPosition.y}) rotate(${carPosition.rotation})`}>
-                    {/* Car body */}
-                    <rect x="-1.2" y="-2" width="2.4" height="4" rx="0.4" fill="hsl(var(--primary))" />
-                    {/* Front indicator */}
-                    <rect x="-0.4" y="1.5" width="0.8" height="0.6" fill="hsl(var(--foreground))" />
-                    {/* Wheels */}
-                    <rect x="-1.6" y="-1.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="1.1" y="-1.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="-1.6" y="0.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                    <rect x="1.1" y="0.5" width="0.5" height="1" fill="hsl(var(--muted-foreground))" rx="0.1" />
-                  </g>
+                  {isCustom ? (
+                    <>
+                      {hasCustom ? (
+                        <>
+                          {/* Track surface band between left/right */}
+                          <path d={bandPath(customLeft, customRight)} fill="hsl(var(--muted))" opacity="0.4" />
+                          {/* Left edge (yellow) */}
+                          <path d={linePath(customLeft)} fill="none" stroke="hsl(48, 96%, 53%)" strokeWidth="0.6" strokeLinejoin="round" strokeLinecap="round" />
+                          {/* Right edge (blue) */}
+                          <path d={linePath(customRight)} fill="none" stroke="hsl(217, 91%, 60%)" strokeWidth="0.6" strokeLinejoin="round" strokeLinecap="round" />
+                          {/* Centerline trail */}
+                          <path d={getVisibleLinePath(centerPoints, carProgress)} fill="none" stroke="hsl(0, 84%, 50%)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_4px_hsl(0,84%,50%)]" />
+                        </>
+                      ) : (
+                        <g>
+                          <rect x="10" y="40" width="80" height="20" fill="hsl(var(--muted))" opacity="0.2" rx="2" />
+                          <text x="50" y="52" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="3">
+                            No custom track yet — click "Open Editor" to draw one
+                          </text>
+                        </g>
+                      )}
+                    </>
+                  ) : preset ? (
+                    <>
+                      {/* Track surface (outer) */}
+                      <path d={preset.outerPath} fill="hsl(var(--muted))" opacity="0.4" fillRule="evenodd" />
+                      {/* Track inner cutout */}
+                      <path d={preset.innerPath} fill="hsl(var(--background))" fillRule="evenodd" />
+                      {/* Borders */}
+                      <path d={preset.outerPath} fill="none" stroke="hsl(var(--foreground))" strokeWidth="0.4" opacity="0.6" />
+                      <path d={preset.innerPath} fill="none" stroke="hsl(var(--foreground))" strokeWidth="0.4" opacity="0.6" />
+                      {/* Centerline trail */}
+                      <path d={getVisibleLinePath(centerPoints, carProgress)} fill="none" stroke="hsl(0, 84%, 50%)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-[0_0_4px_hsl(0,84%,50%)]" />
+                    </>
+                  ) : null}
+
+                  {/* Car sprite (top-down) */}
+                  {centerPoints.length > 1 && (
+                    <g transform={`translate(${carPosition.x}, ${carPosition.y}) rotate(${carPosition.rotation})`}>
+                      <image
+                        href={carSprite}
+                        x={-CAR_W / 2}
+                        y={-CAR_H / 2}
+                        width={CAR_W}
+                        height={CAR_H}
+                        preserveAspectRatio="xMidYMid meet"
+                        style={{ filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.6))" }}
+                      />
+                    </g>
+                  )}
                 </svg>
               </div>
 
-              {/* Racing Line Legend */}
-              <div className="mt-4 flex items-center justify-center gap-6 p-3 bg-muted/30 rounded-lg border border-dashboard-border">
+              {/* Legend */}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-6 p-3 bg-muted/30 rounded-lg border border-dashboard-border">
+                {isCustom ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-1 rounded-full bg-[hsl(48,96%,53%)]" />
+                      <span className="text-xs text-muted-foreground">Left Edge</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-1 rounded-full bg-[hsl(217,91%,60%)]" />
+                      <span className="text-xs text-muted-foreground">Right Edge</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-1 rounded-full bg-[hsl(0,84%,50%)]" />
+                    <span className="text-xs text-muted-foreground">Vehicle Path</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-1 rounded-full bg-[hsl(142,76%,36%)]" />
-                  <span className="text-xs text-muted-foreground">Optimal Racing Line</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-1 rounded-full bg-[hsl(0,84%,50%)]" />
-                  <span className="text-xs text-muted-foreground">Actual Path Taken</span>
+                  <span className="text-xs text-muted-foreground">Dynamics: speed/steering/force from ROS2 bag</span>
                 </div>
               </div>
             </Card>
@@ -367,29 +342,11 @@ const Simulation = () => {
             <div className="space-y-6">
               {/* Speedometer */}
               <Card className="p-6 bg-card border-dashboard-border">
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-                  Speedometer
-                </h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Speedometer</h3>
                 <div className="relative flex items-center justify-center">
                   <svg width="160" height="100" viewBox="0 0 160 100">
-                    {/* Speed arc background */}
-                    <path
-                      d="M 20 90 A 60 60 0 0 1 140 90"
-                      fill="none"
-                      stroke="hsl(var(--muted))"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                    />
-                    {/* Speed arc fill */}
-                    <path
-                      d="M 20 90 A 60 60 0 0 1 140 90"
-                      fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth="8"
-                      strokeLinecap="round"
-                      strokeDasharray={`${(speed / 80) * 188} 188`}
-                    />
-                    {/* Speed text */}
+                    <path d="M 20 90 A 60 60 0 0 1 140 90" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" strokeLinecap="round" />
+                    <path d="M 20 90 A 60 60 0 0 1 140 90" fill="none" stroke="hsl(var(--primary))" strokeWidth="8" strokeLinecap="round" strokeDasharray={`${(speed / 80) * 188} 188`} />
                     <text x="80" y="75" textAnchor="middle" fill="hsl(var(--foreground))" fontSize="24" fontWeight="bold" className="font-telemetry">
                       {speed.toFixed(0)}
                     </text>
@@ -402,28 +359,15 @@ const Simulation = () => {
 
               {/* G-Force Display */}
               <Card className="p-6 bg-card border-dashboard-border">
-                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-                  G-Force
-                </h3>
+                <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">G-Force</h3>
                 <div className="relative flex items-center justify-center">
                   <svg width="120" height="120" viewBox="0 0 120 120">
-                    {/* Grid */}
                     <circle cx="60" cy="60" r="50" fill="none" stroke="hsl(var(--muted))" strokeWidth="1" opacity="0.3" />
                     <circle cx="60" cy="60" r="35" fill="none" stroke="hsl(var(--muted))" strokeWidth="1" opacity="0.2" />
                     <circle cx="60" cy="60" r="20" fill="none" stroke="hsl(var(--muted))" strokeWidth="1" opacity="0.2" />
                     <line x1="10" y1="60" x2="110" y2="60" stroke="hsl(var(--muted))" strokeWidth="1" opacity="0.3" />
                     <line x1="60" y1="10" x2="60" y2="110" stroke="hsl(var(--muted))" strokeWidth="1" opacity="0.3" />
-                    
-                    {/* G-Force indicator */}
-                    <circle 
-                      cx={60 + gForceX * 25} 
-                      cy={60 - gForceY * 25} 
-                      r="8" 
-                      fill="hsl(var(--primary))"
-                      className="drop-shadow-[0_0_8px_hsl(var(--primary))]"
-                    />
-                    
-                    {/* Labels */}
+                    <circle cx={60 + gForceX * 25} cy={60 - gForceY * 25} r="8" fill="hsl(var(--primary))" className="drop-shadow-[0_0_8px_hsl(var(--primary))]" />
                     <text x="60" y="15" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="8">ACCEL</text>
                     <text x="60" y="115" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="8">BRAKE</text>
                     <text x="8" y="63" textAnchor="start" fill="hsl(var(--muted-foreground))" fontSize="8">L</text>
@@ -440,15 +384,13 @@ const Simulation = () => {
 
           {/* Telemetry Metrics */}
           <Card className="p-6 bg-card border-dashboard-border">
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">
-              Live Telemetry
-            </h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Live Telemetry</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { label: "Steering Angle", value: steeringAngle.toFixed(1), unit: "deg" },
                 { label: "Speed", value: speed.toFixed(1), unit: "m/s" },
                 { label: "Force", value: force.toFixed(0), unit: "N" },
-                { label: "Yaw Moment", value: yawMoment.toFixed(0), unit: "Nm" }
+                { label: "Yaw Moment", value: yawMoment.toFixed(0), unit: "Nm" },
               ].map((metric) => (
                 <div key={metric.label} className="p-4 bg-dashboard-grid rounded-lg border border-dashboard-border">
                   <p className="text-xs text-muted-foreground mb-1">{metric.label}</p>
@@ -463,46 +405,24 @@ const Simulation = () => {
             {/* Playback Controls */}
             <div className="mt-6 space-y-4">
               <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90"
-                >
+                <Button variant="ghost" size="icon" onClick={() => setIsPlaying(!isPlaying)} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90">
                   {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleReset}
-                  className="h-8 w-8"
-                >
+                <Button variant="ghost" size="icon" onClick={handleReset} className="h-8 w-8">
                   <RotateCcw className="h-4 w-4" />
                 </Button>
-                <div 
-                  className="flex-1 h-2 bg-muted rounded-full relative overflow-hidden cursor-pointer"
-                  onClick={handleScrub}
-                >
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all"
-                    style={{ width: `${(currentTime / maxTime) * 100}%` }}
-                  />
+                <div className="flex-1 h-2 bg-muted rounded-full relative overflow-hidden cursor-pointer" onClick={handleScrub}>
+                  <div className="absolute left-0 top-0 h-full bg-primary rounded-full transition-all" style={{ width: `${(currentTime / maxTime) * 100}%` }} />
                 </div>
                 <span className="text-xs font-telemetry text-muted-foreground min-w-[80px]">
-                  {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(0).padStart(2, '0')} / 10:52
+                  {Math.floor(currentTime / 60)}:{(currentTime % 60).toFixed(0).padStart(2, "0")} / 10:52
                 </span>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Speed:</span>
                 {[0.5, 1, 2, 4].map((s) => (
-                  <Button
-                    key={s}
-                    variant={playbackSpeed === s ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => setPlaybackSpeed(s)}
-                    className="h-7 text-xs"
-                  >
+                  <Button key={s} variant={playbackSpeed === s ? "default" : "ghost"} size="sm" onClick={() => setPlaybackSpeed(s)} className="h-7 text-xs">
                     {s}x
                   </Button>
                 ))}
