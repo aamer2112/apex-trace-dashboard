@@ -22,7 +22,9 @@ import {
   centerFromBoundaries,
 } from "@/lib/trackPresets";
 import CustomTrackEditor from "@/components/CustomTrackEditor";
-import carSprite from "@/assets/car-topdown.png";
+import carSprite from "@/assets/car-sticker.png";
+
+const CUSTOM_TRACK_STORAGE_KEY = "apextrace.customTrack.v1";
 
 // Convert points to SVG path
 const linePath = (points: TrackPoint[]): string => pointsToPath(points);
@@ -42,9 +44,31 @@ const Simulation = () => {
   // Track preset selection
   const [trackId, setTrackId] = useState<string>(TRACK_PRESETS[0].id);
   const [editorOpen, setEditorOpen] = useState(false);
-  // Custom track is isolated state — never written back to bag data
-  const [customLeft, setCustomLeft] = useState<TrackPoint[]>([]);
-  const [customRight, setCustomRight] = useState<TrackPoint[]>([]);
+  // Custom track is isolated state — never written back to bag data.
+  // Persisted in localStorage so it survives reloads.
+  const [customLeft, setCustomLeft] = useState<TrackPoint[]>(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_TRACK_STORAGE_KEY);
+      if (raw) return JSON.parse(raw).left ?? [];
+    } catch {}
+    return [];
+  });
+  const [customRight, setCustomRight] = useState<TrackPoint[]>(() => {
+    try {
+      const raw = localStorage.getItem(CUSTOM_TRACK_STORAGE_KEY);
+      if (raw) return JSON.parse(raw).right ?? [];
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CUSTOM_TRACK_STORAGE_KEY,
+        JSON.stringify({ left: customLeft, right: customRight })
+      );
+    } catch {}
+  }, [customLeft, customRight]);
 
   // Fetch telemetry data when bag changes
   const fetchTelemetryData = useCallback(async () => {
@@ -174,8 +198,9 @@ const Simulation = () => {
   };
 
   // Car sprite size in viewBox units
-  const CAR_W = 4;
-  const CAR_H = 6;
+  // Car sticker size in viewBox units (sticker has its own border + background)
+  const CAR_W = 7;
+  const CAR_H = 10;
 
   return (
     <div className="min-h-screen bg-background">
